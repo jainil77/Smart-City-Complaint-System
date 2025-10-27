@@ -8,6 +8,8 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import RoleProtectedRoute from './components/RoleProtectedRoute.jsx';
 import SignUpPage from './pages/SignUpPage.jsx'; // Import the SignUpPage component
 import ComplaintDetailPage from './pages/ComplaintDetailPage.jsx';
+import MyComplaintsPage from './pages/MyComplaintsPage.jsx';
+import LodgeComplaintPage from './pages/LodgeComplaintPage.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +22,14 @@ export const router = createBrowserRouter([
           
             <HomePage />
 
+      },
+      {
+        path: 'lodge-complaint', // The path users navigate to
+        element: (
+          <ProtectedRoute> {/* Make sure this wrapper is present */}
+            <LodgeComplaintPage /> 
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'complaint/:id', // 👈 Add this new route
@@ -39,6 +49,14 @@ export const router = createBrowserRouter([
           <RoleProtectedRoute role="super admin">
             <SuperAdminDashboard />
           </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: 'my-complaints', 
+        element: (
+          <ProtectedRoute>
+            <MyComplaintsPage />
+          </ProtectedRoute>
         ),
       },
     ],

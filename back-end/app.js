@@ -1,5 +1,7 @@
 const express = require('express');
 const app = express();
+const multer = require('multer'); 
+const path = require('path');
 const cors = require('cors');
 const connectDB = require('./db');
 const bcrypt = require('bcrypt');
@@ -16,6 +18,8 @@ require('dotenv').config();
 
 const PORT = process.env.PORT || 8080;
 
+
+
 // Middleware
 app.use(express.json());
 app.use(cors({
@@ -23,6 +27,8 @@ app.use(cors({
     credentials: true
 }))
 app.use(cookieParser());
+// Serve files from the 'uploads' directory statically at the '/uploads' URL path
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const anonymousUsernames = [
   'Brave Lion', 'Clever Fox', 'Wise Owl', 'Swift Eagle', 'Silent Wolf',
@@ -40,6 +46,24 @@ const anonymousUsernames = [
 
 // Connect to the database
 connectDB();
+
+// --- Multer Configuration ---
+const storage = multer.diskStorage({
+  // destination: function determines the folder where files will be saved
+  destination: function (req, file, cb) {
+    // 'cb' is a callback function (error, destination_folder)
+    cb(null, 'uploads/'); // Save files in the 'uploads/' folder
+  },
+  // filename: function determines the name of the file inside the 'uploads/' folder
+  filename: function (req, file, cb) {
+    // We create a unique filename to prevent overwrites
+    // It uses the original fieldname, the current timestamp, and the original file extension
+    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+// Create the multer instance with the storage configuration
+const upload = multer({ storage: storage });
 
 app.get('/', (req, res) => {
 	res.send('Hello World!');
@@ -144,7 +168,7 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // Protected Complaint Creation Endpoint
-app.post('/api/complaints', protect, async (req, res) => {
+app.post('/api/complaints', protect,upload.single('image'), async (req, res) => {
   const { title, description } = req.body;
 
   // Basic validation
@@ -166,12 +190,39 @@ app.post('/api/complaints', protect, async (req, res) => {
   }
 });
 
-// Protected Get All Complaints Endpoint
+// Get All Complaints Endpoint with Search Functionality
 app.get('/api/complaints', async (req, res) => {
   try {
-    const complaints = await Complaint.find({})
-      .populate('author', 'anonymousName') // Populate with author's name and email
-      .sort({ createdAt: -1 }); // Show newest first
+    // Check if a 'search' query parameter exists in the URL
+    const keyword = req.query.search ? {
+      // Create a filter object to search in title OR description
+      // $or performs an OR condition
+      // $regex provides regex capabilities for case-insensitive search
+      $or: [
+        { title: { $regex: req.query.search, $options: 'i' } }, // 'i' for case-insensitive
+        { description: { $regex: req.query.search, $options: 'i' } },
+      ],
+    } : {}; // If no search query, the filter object is empty ({})
+
+    // Apply the filter object (keyword) to the find() method
+    const complaints = await Complaint.find({ ...keyword })
+      .populate('author', 'anonymousName')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(complaints);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Protected Get My Complaints Endpoint
+app.get('/api/complaints/mycomplaints', protect, async (req, res) => {
+  try {
+    const complaints = await Complaint.find({ author: req.user._id })
+      .populate('author', 'anonymousName')
+      .sort({ createdAt: -1 });
+      
     res.status(200).json(complaints);
   } catch (error) {
     console.error(error);
@@ -225,6 +276,8 @@ app.put('/api/complaints/:id', protect, async (req, res) => {
   }
 });
 
+
+
 // Protected Delete Complaint Endpoint
 app.delete('/api/complaints/:id', protect, async (req, res) => {
   try {
@@ -247,6 +300,8 @@ app.delete('/api/complaints/:id', protect, async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 });
+
+
 
 // Protected Upvote Complaint Endpoint
 app.post('/api/complaints/:id/upvote', protect, async (req, res) => {
@@ -330,7 +385,7 @@ app.post('/api/complaints/:id/comments', protect, async (req, res) => {
 app.get('/api/complaints/:id/comments', protect, async (req, res) => {
   try {
     const comments = await Comment.find({ complaint: req.params.id })
-      .populate('author', 'name') // Show the author's name
+      .populate('author', 'anonymousName') // Show the author's name
       .sort({ createdAt: -1 });   // Show newest comments first
 
     res.status(200).json(comments);
@@ -349,20 +404,22 @@ app.delete('/api/comments/:commentId', protect, async (req, res) => {
     }
 
     // --- Ownership Check ---
-    if (comment.author.toString() !== req.user._id.toString()) {
+    // Allow deletion if the user is the author OR if the user is an admin
+    if (comment.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(401).json({ message: 'User not authorized' });
     }
 
-    // We also need to remove the comment ID from the parent complaint's array
+    // Remove the comment ID from the parent complaint's array
     await Complaint.findByIdAndUpdate(comment.complaint, {
       $pull: { comments: req.params.commentId },
     });
 
-    // Now, delete the comment itself
-    await comment.deleteOne();
+    // Delete the comment document
+    await comment.deleteOne(); // Use deleteOne() on the document instance
 
     res.status(200).json({ message: 'Comment deleted successfully' });
   } catch (error) {
+    console.error('Error deleting comment:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
