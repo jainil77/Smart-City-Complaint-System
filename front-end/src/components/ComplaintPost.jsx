@@ -42,9 +42,10 @@ function ComplaintPost({ complaint }) {
       {complaint.image && (
         <div className="bg-black w-full flex items-center justify-center">
           <img 
-            src={`http://localhost:8080/${complaint.image.replace(/\\/g, '/')}`} 
+            src={complaint.image} 
             alt={complaint.title || 'Complaint Image'} 
-            className="max-h-[600px] object-contain" 
+            // Changed object-contain to object-cover and adjusted height
+            className="w-full max-h-[600px] object-cover object-center" 
           />
         </div>
       )}

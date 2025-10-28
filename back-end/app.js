@@ -8,6 +8,32 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const { protect,admin } = require('./middleware/authMiddleware');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
+
+require('dotenv').config(); 
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+
+
+
+// Configure Cloudinary storage for Multer
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary, // Your configured cloudinary instance
+  params: {
+    folder: 'SCCS_Complaints', // Choose a folder name in Cloudinary
+    // format: async (req, file) => 'jpg', // Optional: force a format
+    public_id: (req, file) => `${file.fieldname}-${Date.now()}`, // Optional: define how files are named
+  },
+});
+
+// Create the Multer upload instance
+const upload = multer({ storage: storage });
 
 // Models
 const User = require('./models/User');
@@ -47,23 +73,7 @@ const anonymousUsernames = [
 // Connect to the database
 connectDB();
 
-// --- Multer Configuration ---
-const storage = multer.diskStorage({
-  // destination: function determines the folder where files will be saved
-  destination: function (req, file, cb) {
-    // 'cb' is a callback function (error, destination_folder)
-    cb(null, 'uploads/'); // Save files in the 'uploads/' folder
-  },
-  // filename: function determines the name of the file inside the 'uploads/' folder
-  filename: function (req, file, cb) {
-    // We create a unique filename to prevent overwrites
-    // It uses the original fieldname, the current timestamp, and the original file extension
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
 
-// Create the multer instance with the storage configuration
-const upload = multer({ storage: storage });
 
 app.get('/', (req, res) => {
 	res.send('Hello World!');
@@ -124,6 +134,23 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// Get Top 5 Complaints by Upvotes
+app.get('/api/complaints/top', async (req, res) => {
+  try {
+    // Make sure 'Complaint' model is required correctly at the top of your file
+    const topComplaints = await Complaint.find({}) 
+      .sort({ upvoteCount: -1 }) // Check spelling of 'upvoteCount'
+      .limit(5)                 
+      .select('title upvoteCount _id'); // Select title, count, and ID (needed for the Link key)
+
+    res.status(200).json(topComplaints);
+  } catch (error) {
+    // This catch block likely sent the "Server Error" message
+    console.error('Error fetching top complaints:', error); // The detailed error prints here
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 // User Login Endpoint
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
@@ -168,25 +195,33 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // Protected Complaint Creation Endpoint
-app.post('/api/complaints', protect,upload.single('image'), async (req, res) => {
-  const { title, description } = req.body;
+// Example route for creating a complaint
+app.post('/api/complaints', protect, upload.single('image'), async (req, res) => {
+  // Multer has now processed the upload if a file was sent
+  
+  // Text fields are in req.body
+  const { title, description } = req.body; 
+  
+  // The Cloudinary file info (including the URL) is in req.file
+  // The secure URL is usually in req.file.path
+  const imageUrl = req.file ? req.file.path : null; 
 
-  // Basic validation
-  if (!title || !description) {
-    return res.status(400).json({ message: 'Please provide a title and description.' });
-  }
+  console.log('Uploaded file info:', req.file); // Good for debugging
+  console.log('Image URL:', imageUrl); 
 
   try {
+    // Save the complaint data, including the imageUrl, to MongoDB
     const complaint = await Complaint.create({
       title,
       description,
-      author: req.user._id, // The 'protect' middleware gives us req.user
+      image: imageUrl, // Save the Cloudinary URL
+      author: req.user._id,
+      // ... other fields
     });
-
     res.status(201).json(complaint);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: 'Error saving complaint' });
   }
 });
 
@@ -457,6 +492,8 @@ app.patch('/api/complaints/:id/strike', protect, admin, async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 });
+
+
 
 
 

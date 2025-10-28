@@ -77,7 +77,7 @@ function HomePage() {
 
   return (
     // Main 3-column grid layout
-    <div className="max-w-screen-2xl mx-auto p-8 w-full h-full grid lg:grid-cols-[224px_1fr_320px] md:grid-cols-[224px_1fr] gap-8">
+    <div className="max-w-screen-xl mx-auto p-8 w-full h-full grid lg:grid-cols-[224px_1fr_320px] md:grid-cols-[224px_1fr] gap-8">
       <LeftSidebar />
       <main className="overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* Optional: Display the search term */}
