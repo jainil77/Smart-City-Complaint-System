@@ -16,6 +16,10 @@ const protect = async (req, res, next) => {
       // 3. Get user from the token's payload (ID)
       req.user = await User.findById(decoded.id).select('-password');
 
+      if (req.user && req.user.isBlocked) {
+        return res.status(403).json({ message: 'Your account has been blocked.' }); // 403 Forbidden
+      }
+      
       next();
     } catch (error) {
       console.error(error);

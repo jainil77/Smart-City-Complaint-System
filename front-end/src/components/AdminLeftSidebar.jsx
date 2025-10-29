@@ -28,16 +28,16 @@ function AdminLeftSidebar() {
             Complaints Dashboard
           </Link>
 
-          {/* Placeholder for future User Management link */}
-          {/* <Link
+          <Link
             to="/admin/users" 
             className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
               isActive('/admin/users') ? 'bg-purple-600 font-semibold text-white' : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
             }`}
           >
             User Management
-          </Link> 
-          */}
+          </Link>
+
+    
 
           {/* Add more admin-specific links here as needed */}
 

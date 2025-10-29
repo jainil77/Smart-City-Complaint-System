@@ -11,6 +11,7 @@ import ComplaintDetailPage from './pages/ComplaintDetailPage.jsx';
 import MyComplaintsPage from './pages/MyComplaintsPage.jsx';
 import LodgeComplaintPage from './pages/LodgeComplaintPage.jsx';
 import AdminLayout from './layouts/AdminLayout.jsx';
+import UserManagementPage from './pages/UserManagementPage.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -44,8 +45,8 @@ export const router = createBrowserRouter([
       </RoleProtectedRoute>
     ),
     children: [
-      { index: true, element: <AdminDashboard /> }, // Default admin page
-      // Add other admin sub-routes like /admin/users here later
+      { index: true, element: <AdminDashboard /> },
+      { path: 'users', element: <UserManagementPage /> }, 
     ],
   },
       {
