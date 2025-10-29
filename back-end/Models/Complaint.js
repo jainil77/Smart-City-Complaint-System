@@ -26,6 +26,12 @@ const complaintSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Location' 
     },
+    category: {
+        type: String,
+        // Optional: Define specific allowed categories using enum
+        enum: ['Hygiene', 'Roads', 'Electricity', 'Water', 'Other', 'Pending Classification'], 
+        default: 'Pending Classification'
+    },
     upvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
     strikes: { type: Number, default: 0 },

@@ -13,6 +13,10 @@ const userSchema = new mongoose.Schema({
     password: {
          type: String, required: true 
     },
+    isBlocked: {
+        type: Boolean,
+        default: false // Users are not blocked by default
+    },
     role: {
         type: String,
         enum: ['user', 'admin', 'super admin'],

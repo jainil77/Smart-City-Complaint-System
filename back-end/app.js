@@ -151,6 +151,96 @@ app.get('/api/complaints/top', async (req, res) => {
   }
 });
 
+// Admin: Get All Users Endpoint
+app.get('/api/admin/users', protect, admin, async (req, res) => {
+  try {
+    // Find users whose role is 'user'
+    const users = await User.find({ role: 'user' })
+      .select('-password -otp -otpExpires') // Exclude sensitive fields
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users for admin:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Admin: Block/Unblock User Endpoint
+app.patch('/api/admin/users/:userId/block', protect, admin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent admins from blocking other admins or super admins accidentally
+    if (user.role !== 'user') {
+        return res.status(400).json({ message: 'Cannot block admin or super admin accounts.' });
+    }
+
+    // Toggle the isBlocked status
+    user.isBlocked = !user.isBlocked; 
+    await user.save();
+
+    res.status(200).json({ 
+        message: `User ${user.isBlocked ? 'blocked' : 'unblocked'} successfully.`,
+        user: { // Send back minimal user info
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            isBlocked: user.isBlocked
+        }
+    });
+  } catch (error) {
+    console.error('Error toggling user block status:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Admin: Get All Complaints with Author Details
+app.get('/api/admin/complaints/all', protect, admin, async (req, res) => {
+  try {
+    const complaints = await Complaint.find({}) // Fetch all complaints
+      .populate('author', 'anonymousName email') // Get author's anon name and maybe email for admin view
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    res.status(200).json(complaints);
+  } catch (error) {
+    console.error('Error fetching all complaints for admin:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+
+// Admin: Update Complaint Status Endpoint
+app.patch('/api/admin/complaints/:id/status', protect, admin, async (req, res) => {
+  const { status } = req.body; // Expecting { "status": "In Process" } in the request body
+
+  // Optional: Validate the incoming status against your allowed statuses
+  const allowedStatuses = ['Pending','Admin Accepted', 'In Progress', 'Resolved', 'Rejected'];
+  if (!status || !allowedStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Invalid status provided.' });
+  }
+
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    complaint.status = status; // Update the status field
+    const updatedComplaint = await complaint.save();
+
+    res.status(200).json(updatedComplaint);
+  } catch (error) {
+    console.error('Error updating complaint status:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 // User Login Endpoint
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;

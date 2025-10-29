@@ -10,6 +10,7 @@ import SignUpPage from './pages/SignUpPage.jsx'; // Import the SignUpPage compon
 import ComplaintDetailPage from './pages/ComplaintDetailPage.jsx';
 import MyComplaintsPage from './pages/MyComplaintsPage.jsx';
 import LodgeComplaintPage from './pages/LodgeComplaintPage.jsx';
+import AdminLayout from './layouts/AdminLayout.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -32,17 +33,21 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: 'complaint/:id', // 👈 Add this new route
+        path: 'complaint/:id', 
         element: <ComplaintDetailPage />,
       },
       {
-        path: 'admin',
-        element: (
-          <RoleProtectedRoute role="admin">
-            <AdminDashboard />
-          </RoleProtectedRoute>
-        ),
-      },
+    path: '/admin', // Separate top-level route
+    element: (
+      <RoleProtectedRoute role="admin">
+        <AdminLayout /> {/* AdminLayout contains Header + AdminSidebar + Outlet */}
+      </RoleProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <AdminDashboard /> }, // Default admin page
+      // Add other admin sub-routes like /admin/users here later
+    ],
+  },
       {
         path: 'superadmin',
         element: (
