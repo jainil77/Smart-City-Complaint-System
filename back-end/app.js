@@ -7,9 +7,10 @@ const connectDB = require('./db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const { protect,admin } = require('./middleware/authMiddleware');
+const { protect,admin,superAdmin } = require('./middleware/authMiddleware');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
+const Location = require('./Models/Location');
 
 require('dotenv').config(); 
 
@@ -151,6 +152,8 @@ app.get('/api/complaints/top', async (req, res) => {
   }
 });
 
+
+
 // Admin: Get All Users Endpoint
 app.get('/api/admin/users', protect, admin, async (req, res) => {
   try {
@@ -237,6 +240,137 @@ app.patch('/api/admin/complaints/:id/status', protect, admin, async (req, res) =
     res.status(200).json(updatedComplaint);
   } catch (error) {
     console.error('Error updating complaint status:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Super Admin: Add Location Endpoint
+app.post('/api/superadmin/locations', protect, superAdmin, async (req, res) => {
+  const { name } = req.body; // Expecting { "name": "Ward 10" }
+
+  try {
+    const locationExists = await Location.findOne({ name });
+    if (locationExists) {
+      return res.status(400).json({ message: 'Location with that name already exists.' });
+    }
+
+    const location = await Location.create({
+      name,
+      // You could add coordinates here later if needed
+    });
+
+    res.status(201).json(location);
+  } catch (error) {
+    console.error('Error adding location:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Super Admin: Create Admin Endpoint
+app.post('/api/superadmin/create-admin', protect, superAdmin, async (req, res) => {
+  const { name, email, password } = req.body;
+
+  try {
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: 'User with that email already exists.' });
+    }
+
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate a random anonymous name
+    const randomIndex = Math.floor(Math.random() * anonymousUsernames.length);
+    const randomName = anonymousUsernames[randomIndex];
+
+    // Create the new user with the role set to 'admin'
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      anonymousName: randomName,
+      role: 'admin', // 👈 Set the role to 'admin'
+      isVerified: true, // We can assume Super Admin is creating a verified account
+    });
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
+  } catch (error) {
+    console.error('Error creating admin:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Super Admin: Get All Users Endpoint
+app.get('/api/superadmin/users', protect, superAdmin, async (req, res) => {
+  try {
+    // Find all users except the super admin themselves
+    const users = await User.find({ role: { $ne: 'superadmin' } })
+      .select('-password -otp -otpExpires') // Exclude sensitive fields
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching all users for super admin:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Super Admin: Update User Role Endpoint
+app.patch('/api/superadmin/users/:userId/role', protect, superAdmin, async (req, res) => {
+  const { role } = req.body; // Expecting { "role": "admin" } or { "role": "user" }
+
+  // Validate the incoming role
+  if (!role || (role !== 'admin' && role !== 'user')) {
+    return res.status(400).json({ message: 'Invalid role specified. Can only set to "admin" or "user".' });
+  }
+
+  try {
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Safety check: prevent a super admin from accidentally demoting another super admin
+    if (user.role === 'superadmin') {
+         return res.status(400).json({ message: 'Cannot change the role of a Super Admin.' });
+    }
+
+    user.role = role;
+    await user.save();
+    
+    // Send back the updated user
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Super Admin: Get User Complaints Endpoint
+app.get('/api/superadmin/users/:userId/complaints', protect, superAdmin, async (req, res) => {
+  try {
+    // Find all complaints where the author matches the userId from the URL
+    const complaints = await Complaint.find({ author: req.params.userId })
+      .populate('author', 'anonymousName') // Populate for consistency
+      .sort({ createdAt: -1 });
+
+    // Also fetch the user's details to show who we're looking at
+    const user = await User.findById(req.params.userId).select('name anonymousName email');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ user, complaints });
+  } catch (error) {
+    console.error('Error fetching user complaints:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });

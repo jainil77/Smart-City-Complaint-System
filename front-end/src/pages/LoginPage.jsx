@@ -24,7 +24,7 @@ function LoginPage() {
       login(userData); // Save user to global state
 
       // Redirect based on role
-      if (userData.role === 'super admin') {
+      if (userData.role === 'superadmin') {
         navigate('/superadmin');
       } else if (userData.role === 'admin') {
         navigate('/admin');

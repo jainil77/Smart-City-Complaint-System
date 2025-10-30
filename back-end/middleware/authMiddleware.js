@@ -31,12 +31,21 @@ const protect = async (req, res, next) => {
 };
 
 const admin = (req, res, next) => {
-  // 'protect' middleware should run first, so we'll have req.user
-  if (req.user && req.user.role === 'admin') {
-    next(); // User is an admin, proceed
+  // Allow if the user is an 'admin' OR a 'superadmin'
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+    next();
   } else {
-    res.status(403).json({ message: 'Not authorized as an admin' });
+    res.status(403).json({ message: 'Not authorized. Admin or Super Admin access required.' });
   }
 };
 
-module.exports = { protect ,admin};
+const superAdmin = (req, res, next) => {
+  // This middleware MUST run *after* 'protect', so req.user will exist.
+  if (req.user && req.user.role === 'superadmin') {
+    next(); // User is a Super Admin, proceed.
+  } else {
+    res.status(403).json({ message: 'Not authorized as a Super Admin.' });
+  }
+};
+
+module.exports = { protect ,admin,superAdmin};
