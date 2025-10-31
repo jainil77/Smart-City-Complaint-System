@@ -22,6 +22,7 @@
     "mongoose": "^8.19.0",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-nlp": "^5.0.0-alpha.5",
     "nodemailer": "^7.0.9",
     "nodemon": "^3.1.10"
   }

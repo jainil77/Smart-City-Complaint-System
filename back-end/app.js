@@ -11,6 +11,7 @@ const { protect,admin,superAdmin } = require('./middleware/authMiddleware');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const Location = require('./Models/Location');
+const manager = require('./nlp-config.js');
 
 require('dotenv').config(); 
 
@@ -71,8 +72,15 @@ const anonymousUsernames = [
   'Humble Bee', 'Keen Otter', 'Jovial Jay', 'Nimble Rabbit', 'Quiet Mole'
 ];
 
-// Connect to the database
-connectDB();
+// // Connect to the database
+// connectDB();
+
+// // --- NLP Training ---
+// (async() => {
+//     console.log('Training NLP model...');
+//     await manager.train();
+//     console.log('NLP model trained and ready.');
+// })();
 
 
 
@@ -418,34 +426,53 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Protected Complaint Creation Endpoint
-// Example route for creating a complaint
+// Create Complaint Endpoint with NLP Classification
 app.post('/api/complaints', protect, upload.single('image'), async (req, res) => {
-  // Multer has now processed the upload if a file was sent
-  
-  // Text fields are in req.body
-  const { title, description } = req.body; 
-  
-  // The Cloudinary file info (including the URL) is in req.file
-  // The secure URL is usually in req.file.path
+  const { title, description, lat, lng } = req.body; 
   const imageUrl = req.file ? req.file.path : null; 
 
-  console.log('Uploaded file info:', req.file); // Good for debugging
-  console.log('Image URL:', imageUrl); 
+  if (!title || !description) {
+    return res.status(400).json({ message: 'Please provide a title and description.' });
+  }
 
   try {
-    // Save the complaint data, including the imageUrl, to MongoDB
+    // --- 👇 NLP Classification Step 👇 ---
+    const nlpResponse = await manager.process('en', description);
+    const predictedCategory = nlpResponse.intent.startsWith('category.') 
+      ? nlpResponse.intent.split('.')[1] // Extracts 'hygiene' from 'category.hygiene'
+      : 'Other'; // Fallback category
+
+    // Map the result to your schema's enum values
+    // Example: 'hygiene' -> 'Hygiene'
+    const finalCategory = (categoryMap) => {
+      const map = {
+        'hygiene': 'Hygiene',
+        'roads': 'Roads',
+        'electricity': 'Electricity',
+        'water': 'Water',
+        'other': 'Other',
+        // Add other mappings here
+      };
+      return map[categoryMap] || 'Other';
+    };
+    // --- 👆 End of NLP Step 👆 ---
+
     const complaint = await Complaint.create({
       title,
       description,
-      image: imageUrl, // Save the Cloudinary URL
       author: req.user._id,
-      // ... other fields
+      image: imageUrl,
+      coordinates: {
+        lat: lat ? parseFloat(lat) : null,
+        lng: lng ? parseFloat(lng) : null
+      },
+      category: finalCategory(predictedCategory), // 👈 Save the predicted category
     });
+
     res.status(201).json(complaint);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error saving complaint' });
+    console.error('Error creating complaint:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 });
 
@@ -731,7 +758,33 @@ app.get('/api/users/profile', protect, (req, res) => {
 });
 
  
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+// app.listen(PORT, () => {
+//     console.log(`Server is running on port ${PORT}`);
+// });
 
+const startServer = async () => {
+  try {
+    // 1. Wait for the model to train first
+    console.log('Training NLP model...');
+    await manager.train();
+    console.log('NLP model trained and ready.');
+
+    // 2. Then, connect to the database
+    // (Ensure your connectDB function returns a promise, e.g., it's an async function)
+    await connectDB();
+    console.log('MongoDB connected.');
+
+    // 3. Finally, start the server
+    const PORT = process.env.PORT || 8080;
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+};
+
+// --- 6. Call the Start Function ---
+startServer();
