@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { FaMapMarkerAlt } from 'react-icons/fa';
 
 // Define potential complaint categories (Update these based on your actual categories)
 const CATEGORIES = ['All', 'Hygiene', 'Roads', 'Electricity', 'Water', 'Other'];
@@ -95,6 +96,7 @@ function AdminDashboard() {
               <th className="text-left p-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">Category</th>
               <th className="text-left p-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">Author</th>
               <th className="text-left p-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">Date</th>
+              <th className="text-left p-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">Location</th>
               <th className="text-left p-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">Status</th>
               <th className="text-left p-3 text-xs font-medium text-zinc-400 uppercase tracking-wider">Actions</th>
             </tr>
@@ -102,6 +104,7 @@ function AdminDashboard() {
           <tbody className="divide-y divide-zinc-700">
             {filteredComplaints.map((complaint) => (
               <tr key={complaint._id} className="hover:bg-zinc-800">
+                
                 <td className="p-3 text-sm text-white whitespace-nowrap">
                   <Link to={`/complaint/${complaint._id}`} className="hover:underline" title={complaint.title}>
                     {/* Truncate long titles */}
@@ -111,6 +114,21 @@ function AdminDashboard() {
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">{complaint.category || 'N/A'}</td>
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">{complaint.author?.anonymousName || 'N/A'}</td>
                 <td className="p-3 text-sm text-zinc-400 whitespace-nowrap">{new Date(complaint.createdAt).toLocaleDateString()}</td>
+                <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">
+                  {complaint.coordinates && complaint.coordinates.lat ? (
+                  <a 
+                  href={`https://www.google.com/maps?q=${complaint.coordinates.lat},${complaint.coordinates.lng}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 hover:underline"
+                  >
+                  <FaMapMarkerAlt />
+                  View on Map
+                  </a>
+                  ) : (
+                  <span className="text-zinc-500">No Location</span>
+                  )}
+                </td>
                 <td className="p-3 text-sm text-white whitespace-nowrap">{complaint.status}</td>
                 <td className="p-3 text-sm text-white whitespace-nowrap">
                   <select
