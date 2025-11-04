@@ -3,8 +3,10 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css'; // Make sure to import Leaflet's CSS
-// You may also need to fix the default Leaflet icon issue
 import L from 'leaflet';
+
+// --- Fix for default Leaflet icon ---
+// This ensures the marker icons appear correctly in React.
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -29,6 +31,12 @@ function ClickableMarker({ position, setPosition }) {
   // Render the marker only if a position has been set
   return position === null ? null : <Marker position={position}></Marker>;
 }
+
+// Define the bounding box for Surat (SouthWest_corner, NorthEast_corner)
+const suratBounds = [
+  [21.05, 72.7], // SW corner
+  [21.3, 72.95], // NE corner
+];
 
 /**
  * A page component for lodging a new complaint.
@@ -89,10 +97,10 @@ function LodgeComplaintPage() {
 
   // --- JSX Rendering ---
   return (
-    // Use smaller padding on mobile (p-4) and larger on desktop (md:p-8)
+    // Responsive container with scrolling
     <div className="max-w-2xl mx-auto p-4 md:p-8 h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <h1 className="text-3xl font-bold text-white mb-6">Lodge a New Complaint</h1>
-      {/* Use smaller padding on the form for mobile (p-4) */}
+      {/* Responsive padding on the form */}
       <form onSubmit={handleSubmit} className="bg-zinc-900 p-4 md:p-8 rounded-lg shadow-lg border border-zinc-700">
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
         
@@ -138,8 +146,10 @@ function LodgeComplaintPage() {
         <div className="mb-6">
           <label className="block text-zinc-400 mb-2" htmlFor="location">Location (Optional: Click on the map)</label>
           <MapContainer 
-            center={[23.0225, 72.5714]} // Default center (Ahmedabad)
+            center={[21.1702, 72.8311]} // Center on Surat
             zoom={13} 
+            maxBounds={suratBounds}     // Restrict map to Surat
+            minZoom={12}                // Don't allow zooming out too far
             className="h-64 w-full rounded-lg border border-zinc-700"
           >
             <TileLayer

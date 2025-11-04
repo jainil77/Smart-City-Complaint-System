@@ -23,12 +23,12 @@ function LeftSidebar() {
             Lodge Complaint
           </Link>
           <Link 
-            to="/my-complaints" // 👈 Set the correct path
+            to="/my-complaints" 
             className={`flex items-center p-3 rounded-lg ${isActive('/my-complaints') ? 'bg-purple-600 font-semibold text-white' : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'}`}>
             My Complaints
           </Link>
           <Link 
-            to="/map" 
+            to="/map"
             className={`flex items-center p-3 rounded-lg ${isActive('/map') ? 'bg-purple-600 font-semibold text-white' : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'}`}>
             Map
           </Link>

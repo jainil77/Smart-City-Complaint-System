@@ -428,6 +428,10 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Create Complaint Endpoint with NLP Classification
 app.post('/api/complaints', protect, upload.single('image'), async (req, res) => {
+
+  console.log('Received req.body:', req.body);
+  console.log('Received req.file:', req.file);
+  
   const { title, description, lat, lng } = req.body; 
   const imageUrl = req.file ? req.file.path : null; 
 

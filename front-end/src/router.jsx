@@ -17,6 +17,7 @@ import SuperAdminDashboardPage from './pages/SuperAdminDashboard.jsx';
 import UserComplaintListPage from './pages/UserComplaintListPage.jsx';
 import CreateAdminPage from './pages/CreateAdminPage.jsx';
 import AddLocationPage from './pages/AddLocationPage.jsx';
+import MapPage from './pages/MapPage.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      { path: 'map', element: <MapPage /> },
     ],
   },
   {

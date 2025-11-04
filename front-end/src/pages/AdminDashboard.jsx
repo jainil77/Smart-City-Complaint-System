@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { FaMapMarkerAlt } from 'react-icons/fa';
+import { FaMapMarkerAlt } from 'react-icons/fa'; // Import the map icon
 
-// Define potential complaint categories (Update these based on your actual categories)
-const CATEGORIES = ['All', 'Hygiene', 'Roads', 'Electricity', 'Water', 'Other'];
-// Define the allowed complaint statuses from your backend model
-const STATUSES = ['All', 'Pending', 'Admin Accepted', 'In Progress', 'Resolved', 'Rejected'];
+// Define complaint categories
+const CATEGORIES = ['All', 'Hygiene', 'Roads', 'Electricity', 'Water', 'Other', 'Pending Classification'];
+// Define allowed complaint statuses from your backend model
+const STATUSES = ['All', 'Pending', 'Admin Accepted', 'In Process', 'Resolved', 'Rejected'];
 
 /**
  * Renders the Admin Dashboard for managing complaints.
@@ -47,8 +47,8 @@ function AdminDashboard() {
   // useMemo recalculates filteredComplaints only when dependencies change
   const filteredComplaints = useMemo(() => {
     return allComplaints.filter(complaint => {
-      // Assuming complaint object has a 'category' field populated by AI/Backend
-      const categoryMatch = selectedCategory === 'All' || (complaint.category || 'Other') === selectedCategory; 
+      // Use 'Pending Classification' as fallback if category is missing
+      const categoryMatch = selectedCategory === 'All' || (complaint.category || 'Pending Classification') === selectedCategory; 
       const statusMatch = selectedStatus === 'All' || complaint.status === selectedStatus;
       return categoryMatch && statusMatch;
     });
@@ -56,7 +56,6 @@ function AdminDashboard() {
 
   // --- Event Handlers ---
   const handleStatusChange = useCallback(async (id, newStatus) => {
-    // Optimistic UI Update: Update local state first for responsiveness
     const originalComplaints = [...allComplaints]; // Keep a copy to revert on error
     setAllComplaints(prevComplaints =>
       prevComplaints.map(complaint =>
@@ -65,19 +64,16 @@ function AdminDashboard() {
     );
 
     try {
-      // Send the update request to the backend
       await axios.patch(`http://localhost:8080/api/admin/complaints/${id}/status`, 
         { status: newStatus },
         { withCredentials: true }
       );
-      // No need to refetch, optimistic update is usually sufficient
     } catch (err) {
       alert('Failed to update status. Please try again.');
       console.error('Error updating status:', err);
-      // Revert the local state if the API call fails
-      setAllComplaints(originalComplaints); 
+      setAllComplaints(originalComplaints); // Revert the local state if the API call fails
     }
-  }, [allComplaints]); // Dependency includes allComplaints for the revert logic
+  }, [allComplaints]);
 
   // --- Rendering ---
 
@@ -104,40 +100,40 @@ function AdminDashboard() {
           <tbody className="divide-y divide-zinc-700">
             {filteredComplaints.map((complaint) => (
               <tr key={complaint._id} className="hover:bg-zinc-800">
-                
                 <td className="p-3 text-sm text-white whitespace-nowrap">
                   <Link to={`/complaint/${complaint._id}`} className="hover:underline" title={complaint.title}>
-                    {/* Truncate long titles */}
                     {complaint.title.length > 30 ? `${complaint.title.substring(0, 30)}...` : complaint.title}
                   </Link>
                 </td>
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">{complaint.category || 'N/A'}</td>
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">{complaint.author?.anonymousName || 'N/A'}</td>
                 <td className="p-3 text-sm text-zinc-400 whitespace-nowrap">{new Date(complaint.createdAt).toLocaleDateString()}</td>
+                
+                {/* Location Cell with Google Maps Link */}
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">
                   {complaint.coordinates && complaint.coordinates.lat ? (
-                  <a 
-                  href={`https://www.google.com/maps?q=${complaint.coordinates.lat},${complaint.coordinates.lng}`}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 hover:underline"
-                  >
-                  <FaMapMarkerAlt />
-                  View on Map
-                  </a>
+                    <a 
+                      href={`https://www.google.com/maps?q=${complaint.coordinates.lat},${complaint.coordinates.lng}`}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 hover:underline"
+                    >
+                      <FaMapMarkerAlt />
+                      View on Map
+                    </a>
                   ) : (
-                  <span className="text-zinc-500">No Location</span>
+                    <span className="text-zinc-500">No Location</span>
                   )}
                 </td>
-                <td className="p-3 text-sm text-white whitespace-nowrap">{complaint.status}</td>
+                
+                <td className="p-3 text-sm text-white whitespace-nowTDS">{complaint.status}</td>
                 <td className="p-3 text-sm text-white whitespace-nowrap">
                   <select
                     value={complaint.status}
-                    // Pass complaint ID and the selected value to the handler
                     onChange={(e) => handleStatusChange(complaint._id, e.target.value)}
                     className="bg-zinc-800 border border-zinc-600 rounded p-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
                   >
-                    {STATUSES.slice(1).map(status => ( // Use slice(1) if you don't want 'All' in the dropdown
+                    {STATUSES.slice(1).map(status => ( // Use slice(1) to remove 'All' from dropdown
                       <option key={status} value={status}>{status}</option>
                     ))}
                   </select>
@@ -151,7 +147,6 @@ function AdminDashboard() {
   };
 
   return (
-    // Main container for the dashboard page content
     <div>
       <h1 className="text-3xl font-bold text-white mb-6">Complaints Dashboard</h1>
 

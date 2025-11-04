@@ -26,6 +26,10 @@ const complaintSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Location' 
     },
+    coordinates: {
+        lat: { type: Number },
+        lng: { type: Number }
+    },
     category: {
         type: String,
         // Optional: Define specific allowed categories using enum
