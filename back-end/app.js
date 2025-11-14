@@ -355,31 +355,61 @@ app.get('/api/superadmin/users', protect, superAdmin, async (req, res) => {
 
 // Admin: Get Partners by Category with Workload
 app.get('/api/admin/partners', protect, admin, async (req, res) => {
-  const { category } = req.query; // Expecting ?category=Roads
+ const { category } = req.query; 
 
-  if (!category) {
-    return res.status(400).json({ message: 'A category query is required.' });
-  }
+ if (!category) {
+  return res.status(400).json({ message: 'A category query is required.' });
+ }
 
-  try {
-    // Find users who are partners AND match the specified category
-    const partners = await User.find({ role: 'partner', category: category })
-      .select('name anonymousName email');
-    
-    // Now, get the workload for these specific partners
-    const partnersWithWorkload = await Promise.all(partners.map(async (partner) => {
-      const workload = await Complaint.countDocuments({ 
-        assignedTo: partner._id,
-        status: 'In Progress' // Count only active "In Progress" tasks
-      });
-      return { ...partner.toObject(), workload }; // Combine user data with their workload
-    }));
-    
-    res.status(200).json(partnersWithWorkload);
-  } catch (error) {
-    console.error('Error fetching partners:', error);
-    res.status(500).json({ message: 'Server Error' });
-  }
+ try {
+  const partners = await User.find({ role: 'partner', category: category })
+   .select('name anonymousName email');
+  
+  const partnersWithWorkload = await Promise.all(partners.map(async (partner) => {
+   
+      // --- THIS IS THE FIX ---
+      // We now count complaints that are EITHER "Assigned" OR "In Process"
+   const workload = await Complaint.countDocuments({ 
+    assignedTo: partner._id,
+    status: { $in: ["Assigned", "In Process"] } 
+   });
+      // --- END OF FIX ---
+
+   return { ...partner.toObject(), workload }; 
+  }));
+  
+  res.status(200).json(partnersWithWorkload);
+ } catch (error) {
+  console.error('Error fetching partners:', error);
+  res.status(500).json({ message: 'Server Error' });
+ }
+});
+
+
+// THIS ROUTE IS CORRECT. DO NOT CHANGE IT.
+app.patch('/api/admin/complaints/:id/assign', protect, admin, async (req, res) => {
+ const { partnerId } = req.body; 
+ const { id: complaintId } = req.params;
+
+ if (!partnerId) {
+  return res.status(400).json({ message: 'Partner ID is required.' });
+ }
+
+ try {
+    const updatedComplaint = await Complaint.findByIdAndUpdate(complaintId, {
+      assignedTo: partnerId,
+      status: 'Assigned' 
+    }, { new: true }); 
+    
+    if (!updatedComplaint) {
+      return res.status(404).json({ message: 'Complaint not found.' });
+   }
+    
+    res.status(200).json(updatedComplaint);
+  } catch (error) {
+    console.error('Error assigning complaint:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
 });
 
 

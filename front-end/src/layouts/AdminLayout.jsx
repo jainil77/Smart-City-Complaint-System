@@ -11,7 +11,7 @@ function AdminLayout() {
         {/* Sidebar remains hidden on small screens (handled within its component) */}
         <AdminLeftSidebar />
         {/* Ensure main takes full width by default */}
-        <main className="w-full"> 
+        <main className="w-full overflow-x-auto"> 
           <Outlet />
         </main>
       </div>

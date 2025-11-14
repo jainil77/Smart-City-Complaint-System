@@ -107,14 +107,19 @@ function LodgeComplaintPage() {
         {/* Title */}
         <div className="mb-4">
           <label className="block text-zinc-400 mb-2" htmlFor="title">Title</label>
-          <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-2 rounded bg-zinc-800 border border-zinc-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            required
-          />
+          <select
+  id="title"
+  value={title}
+  onChange={(e) => setTitle(e.target.value)}
+  className="w-full p-2 rounded bg-zinc-800 border border-zinc-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+  required
+>
+  <option value="">Select Category</option>
+  <option value="Roads">Roads</option>
+  <option value="Hygiene">Hygiene</option>
+  <option value="Electricity">Electricity</option>
+  <option value="Water">Water</option>
+</select>
         </div>
         
         {/* Description */}
@@ -132,7 +137,7 @@ function LodgeComplaintPage() {
         
         {/* Image Upload */}
         <div className="mb-6">
-          <label className="block text-zinc-400 mb-2" htmlFor="image">Image (Optional)</label>
+          <label className="block text-zinc-400 mb-2" htmlFor="image">Image</label>
           <input
             type="file"
             id="image"
@@ -144,7 +149,7 @@ function LodgeComplaintPage() {
         
         {/* Location Picker */}
         <div className="mb-6">
-          <label className="block text-zinc-400 mb-2" htmlFor="location">Location (Optional: Click on the map)</label>
+          <label className="block text-zinc-400 mb-2" htmlFor="location">Location (Click on the map)</label>
           <MapContainer 
             center={[21.1702, 72.8311]} // Center on Surat
             zoom={13} 

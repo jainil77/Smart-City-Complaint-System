@@ -25,7 +25,7 @@ function AdminLeftSidebar() {
               isActive('/admin') ? 'bg-purple-600 font-semibold text-white' : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
             }`}
           >
-            Complaints Dashboard
+            Complaints Managment
           </Link>
 
           <Link
