@@ -17,6 +17,12 @@ const complaintSchema = new mongoose.Schema({
         enum: ['Pending','Admin Accepted', 'In Progress', 'Resolved', 'Rejected'],
         default: 'Pending'
     },
+    // 👇 NEW FIELD: To track which partner is assigned
+    assignedTo: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User', // It references the User model
+        default: null
+    },
     author: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User', 
@@ -42,5 +48,4 @@ const complaintSchema = new mongoose.Schema({
     upvoteCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
-const Complaint = mongoose.model('Complaint', complaintSchema);
-module.exports = Complaint;
+module.exports = mongoose.models.Complaint || mongoose.model('Complaint', complaintSchema);

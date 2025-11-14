@@ -32,12 +32,12 @@ function SuperAdminLeftSidebar() {
 
           {/* Create Admin Link */}
           <Link
-            to="/superadmin/create-admin"
+            to="/superadmin/create-staff"
             className={`flex items-center p-3 rounded-lg ${
-              isActive('/superadmin/create-admin') ? 'bg-purple-600 font-semibold text-white' : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
+              isActive('/superadmin/create-staff') ? 'bg-purple-600 font-semibold text-white' : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
             }`}
           >
-            Create Admin
+            Create Staff
           </Link>
 
           {/* Add Location Link */}

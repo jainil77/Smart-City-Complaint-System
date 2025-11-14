@@ -18,6 +18,7 @@ import UserComplaintListPage from './pages/UserComplaintListPage.jsx';
 import CreateAdminPage from './pages/CreateAdminPage.jsx';
 import AddLocationPage from './pages/AddLocationPage.jsx';
 import MapPage from './pages/MapPage.jsx';
+import CreateStaffPage from './pages/CreateStaffPage.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -65,9 +66,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <SuperAdminDashboardPage /> }, 
       { path: 'users', element: <UserManagementPage /> }, 
-      { path: 'users/:userId', element: <UserComplaintListPage /> },
-      { path: 'create-admin', element: <CreateAdminPage/> }, 
-      { path: 'add-location', element: <AddLocationPage/> }
+      { path: 'users/:userId', element: <UserComplaintListPage /> }, 
+      { path: 'add-location', element: <AddLocationPage/> },
+      { path: 'create-staff', element: <CreateStaffPage /> }
     ],
   },
       {

@@ -38,9 +38,9 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage: storage });
 
 // Models
-const User = require('./models/User');
-const Complaint = require('./models/Complaint');
-const Comment = require('./models/Comment');
+const User = require('./Models/User');
+const Complaint = require('./Models/Complaint');
+const Comment = require('./Models/Comment');
 
 require('dotenv').config();
 
@@ -274,42 +274,65 @@ app.post('/api/superadmin/locations', protect, superAdmin, async (req, res) => {
   }
 });
 
-// Super Admin: Create Admin Endpoint
-app.post('/api/superadmin/create-admin', protect, superAdmin, async (req, res) => {
-  const { name, email, password } = req.body;
+// Super Admin: Create Staff (Admin/Partner) Endpoint
+app.post('/api/superadmin/create-staff', protect, superAdmin, async (req, res) => {
+  // We now expect 'role' and 'category' from the form
+  const { name, email, password, role, category } = req.body;
+
+  // --- 1. Validation ---
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ message: 'Please provide name, email, password, and role.' });
+  }
+
+  // Check for valid roles
+  if (!['admin', 'partner'].includes(role)) {
+    return res.status(400).json({ message: 'Invalid role. Must be "admin" or "partner".' });
+  }
+
+  // If the role is 'partner', a category is required
+  if (role === 'partner' && (!category || category === 'null')) {
+    return res.status(400).json({ message: 'A category is required for a partner.' });
+  }
 
   try {
+    // --- 2. Check if user already exists ---
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'User with that email already exists.' });
     }
 
-    // Hash the password
+    // --- 3. Hash password and create user ---
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Generate a random anonymous name
     const randomIndex = Math.floor(Math.random() * anonymousUsernames.length);
     const randomName = anonymousUsernames[randomIndex];
 
-    // Create the new user with the role set to 'admin'
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
       anonymousName: randomName,
-      role: 'admin', // 👈 Set the role to 'admin'
-      isVerified: true, // We can assume Super Admin is creating a verified account
+      role: role, // Set the role from the form
+      category: role === 'partner' ? category : null, // Set category ONLY for partners
+      isVerified: true, // Assume Super Admin creates verified accounts
     });
 
+    // --- 4. Send back the new user's data ---
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
+      category: user.category,
     });
+
   } catch (error) {
-    console.error('Error creating admin:', error);
+    console.error('Error creating staff:', error);
+    // Check for Mongoose validation errors (e.g., invalid category)
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Validation Error', details: error.message });
+    }
     res.status(500).json({ message: 'Server Error' });
   }
 });
@@ -325,6 +348,63 @@ app.get('/api/superadmin/users', protect, superAdmin, async (req, res) => {
     res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching all users for super admin:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+
+// Admin: Get Partners by Category with Workload
+app.get('/api/admin/partners', protect, admin, async (req, res) => {
+  const { category } = req.query; // Expecting ?category=Roads
+
+  if (!category) {
+    return res.status(400).json({ message: 'A category query is required.' });
+  }
+
+  try {
+    // Find users who are partners AND match the specified category
+    const partners = await User.find({ role: 'partner', category: category })
+      .select('name anonymousName email');
+    
+    // Now, get the workload for these specific partners
+    const partnersWithWorkload = await Promise.all(partners.map(async (partner) => {
+      const workload = await Complaint.countDocuments({ 
+        assignedTo: partner._id,
+        status: 'In Progress' // Count only active "In Progress" tasks
+      });
+      return { ...partner.toObject(), workload }; // Combine user data with their workload
+    }));
+    
+    res.status(200).json(partnersWithWorkload);
+  } catch (error) {
+    console.error('Error fetching partners:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+
+// Admin: Assign Complaint to Partner Endpoint
+app.patch('/api/admin/complaints/:id/assign', protect, admin, async (req, res) => {
+  const { partnerId } = req.body; // Expecting { "partnerId": "..." }
+  const { id: complaintId } = req.params;
+
+  if (!partnerId) {
+    return res.status(400).json({ message: 'Partner ID is required.' });
+  }
+
+  try {
+    const updatedComplaint = await Complaint.findByIdAndUpdate(complaintId, {
+      assignedTo: partnerId,
+      status: 'Assigned' // Update status from 'Pending' to 'Assigned'
+    }, { new: true }); // {new: true} returns the modified document
+    
+    if (!updatedComplaint) {
+      return res.status(404).json({ message: 'Complaint not found.' });
+    }
+    
+    res.status(200).json(updatedComplaint);
+  } catch (error) {
+    console.error('Error assigning complaint:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });
