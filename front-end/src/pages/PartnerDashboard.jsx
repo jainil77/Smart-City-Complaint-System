@@ -127,14 +127,14 @@ function PartnerDashboard() {
     return complaints.filter(c => c.status === activeStatus);
   }, [complaints, filter, filters]); 
 
-  // --- CORRECTED OPTIMISTIC UPDATES FOR ALL ACTIONS ---
+  // --- !! CORRECTED OPTIMISTIC UPDATES FOR ALL ACTIONS !! ---
 
   // 1. Handle Accept
   const handleAccept = async (id) => {
     setError('');
-    // 1. Calculate the new state first
+    // 1. Calculate the new state
     const newComplaintsState = complaints.map(complaint =>
-      complaint._id === id ? { ...complaint, status: 'In Progress' } : complaint
+      complaint._id === id ? { ...complaint, status: 'In Process' } : complaint
     );
     // 2. Optimistically update the UI
     setComplaints(newComplaintsState);
@@ -144,12 +144,12 @@ function PartnerDashboard() {
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/accept`, {}, {
         withCredentials: true,
       });
-      // 4. On success, update the backup to the new state
+      // 4. On success, update the backup to this new, correct state
       setOriginalComplaints(newComplaintsState);
     } catch (err) {
       console.error('Error accepting complaint:', err);
       setError('Failed to accept. Reverting change.');
-      // 5. On error, revert to the old backup
+      // 5. On error, revert to the last known good state
       setComplaints(originalComplaints);
     }
   };
@@ -161,7 +161,7 @@ function PartnerDashboard() {
     }
     setError('');
     
-    // 1. Calculate the new state first
+    // 1. Calculate the new state
     const newComplaintsState = complaints.filter(complaint => complaint._id !== id);
     // 2. Optimistically update the UI
     setComplaints(newComplaintsState);
@@ -171,13 +171,12 @@ function PartnerDashboard() {
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/reject`, {}, {
         withCredentials: true,
       });
-      // 4. On success, update the backup to the new state
+      // 4. On success, update the backup
       setOriginalComplaints(newComplaintsState);
-    } catch (err)
- {
+    } catch (err) {
       console.error('Error rejecting complaint:', err);
       setError('Failed to reject. Reverting change.');
-      // 5. On error, revert to the old backup
+      // 5. On error, revert
       setComplaints(originalComplaints);
     }
   };
@@ -186,7 +185,7 @@ function PartnerDashboard() {
   const handleResolveSubmit = async (id, feedback) => {
     setError(''); 
     
-    // 1. Calculate the new state first
+    // 1. Calculate the new state
     const newComplaintsState = complaints.map(complaint =>
       complaint._id === id 
         ? { ...complaint, status: 'Resolved', partnerFeedback: feedback } 
@@ -203,12 +202,12 @@ function PartnerDashboard() {
         { feedback },
         { withCredentials: true }
       );
-      // 4. On success, update the backup to the new state
+      // 4. On success, update the backup
       setOriginalComplaints(newComplaintsState);
     } catch (err) {
       console.error('Error resolving complaint:', err);
       setError('Failed to resolve. Reverting change.');
-      // 5. On error, revert to the old backup
+      // 5. On error, revert
       setComplaints(originalComplaints);
       // Re-throw error to show in modal
       throw new Error(err.response?.data?.message || 'Failed to submit resolution.');
@@ -239,7 +238,7 @@ function PartnerDashboard() {
           </button>
         </div>
       );
-    } else if (complaint.status === 'In Progress') {
+    } else if (complaint.status === 'In Process') {
       actionButtons = (
         <button
           onClick={() => setModalState({ isOpen: true, complaint: complaint })}
@@ -278,7 +277,7 @@ function PartnerDashboard() {
         
         <div className="border-t border-zinc-700 p-4">
            
-           {/* --- THIS IS THE UPDATED SECTION --- */}
+           {/* --- Updated Address Logic --- */}
            {complaint.coordinates && complaint.coordinates.lat ? (
             // 1. If we have coordinates, show map link
             <a
@@ -300,7 +299,7 @@ function PartnerDashboard() {
             // 3. ELSE show no location
             <div className="text-sm text-zinc-500 mb-4">No Location Provided</div>
           )}
-          {/* --- END OF UPDATE --- */}
+          {/* --- End of Address Logic --- */}
 
           {actionButtons}
         </div>
