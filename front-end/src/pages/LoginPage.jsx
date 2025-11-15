@@ -28,7 +28,10 @@ function LoginPage() {
         navigate('/superadmin');
       } else if (userData.role === 'admin') {
         navigate('/admin');
-      } else {
+      }else if(userData.role === 'partner'){
+        navigate('/dashboard');
+      }
+      else {
         navigate('/');
       }
     } catch (err) {

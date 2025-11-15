@@ -48,4 +48,12 @@ const superAdmin = (req, res, next) => {
   }
 };
 
-module.exports = { protect ,admin,superAdmin};
+const partner = (req, res, next) => {
+  if (req.user && req.user.role === 'partner') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Not authorized as a partner' });
+  }
+};
+
+module.exports = { protect ,admin,superAdmin,partner};

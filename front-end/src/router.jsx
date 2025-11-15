@@ -19,6 +19,7 @@ import CreateAdminPage from './pages/CreateAdminPage.jsx';
 import AddLocationPage from './pages/AddLocationPage.jsx';
 import MapPage from './pages/MapPage.jsx';
 import CreateStaffPage from './pages/CreateStaffPage.jsx';
+import PartnerDashboard from './pages/PartnerDashboard.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,14 @@ export const router = createBrowserRouter([
       { path: 'add-location', element: <AddLocationPage/> },
       { path: 'create-staff', element: <CreateStaffPage /> }
     ],
+  },
+  {
+    path :'/dashboard',
+    element: (
+      <RoleProtectedRoute role="partner">
+        <PartnerDashboard /> {/* Use the SuperAdminLayout */}
+      </RoleProtectedRoute>
+    ),
   },
       {
         path: 'my-complaints', 

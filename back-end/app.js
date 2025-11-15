@@ -7,7 +7,7 @@ const connectDB = require('./db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const { protect,admin,superAdmin } = require('./middleware/authMiddleware');
+const { protect,admin,superAdmin,partner } = require('./middleware/authMiddleware');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const Location = require('./Models/Location');
@@ -161,7 +161,110 @@ app.get('/api/complaints/top', async (req, res) => {
 });
 
 
+// 1. GET Partner's Complaints
+// Fetches all complaints assigned to the currently logged-in partner
+app.get('/api/partner/complaints', protect, partner, async (req, res) => {
+  try {
+    const complaints = await Complaint.find({ assignedTo: req.user._id })
+      .sort({ createdAt: -1 }); // Show newest first
+      
+    res.status(200).json(complaints);
+  } catch (error) {
+    console.error('Error fetching partner complaints:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
 
+// 2. PATCH Partner: Accept Complaint
+// Allows a partner to accept a task, changing status to 'In Process'
+app.patch('/api/partner/complaints/:id/accept', protect, partner, async (req, res) => {
+  try {
+    const complaint = await Complaint.findOne({
+      _id: req.params.id,
+      assignedTo: req.user._id,
+    });
+
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found or not assigned to you.' });
+    }
+
+    if (complaint.status !== 'Assigned') {
+      return res.status(400).json({ message: 'Complaint is not in "Assigned" status.' });
+    }
+
+    complaint.status = 'In Progress';
+    await complaint.save();
+    
+    res.status(200).json(complaint);
+  } catch (error) {
+    console.error('Error accepting complaint:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// 3. PATCH Partner: Reject Complaint
+// Allows a partner to reject a task, setting it back to 'Pending'
+app.patch('/api/partner/complaints/:id/reject', protect, partner, async (req, res) => {
+  try {
+    const complaint = await Complaint.findOne({
+      _id: req.params.id,
+      assignedTo: req.user._id,
+    });
+
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found or not assigned to you.' });
+    }
+
+    // Partner can only reject a newly 'Assigned' task
+    if (complaint.status !== 'Assigned') {
+      return res.status(400).json({ message: 'Cannot reject a complaint that is already in progress.' });
+    }
+
+    complaint.status = 'Pending'; // Go back to admin pool
+    complaint.assignedTo = null; // Un-assign from this partner
+    await complaint.save();
+    
+    res.status(200).json({ message: 'Complaint rejected and returned to admin pool.' });
+  } catch (error) {
+    console.error('Error rejecting complaint:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// 4. PATCH Partner: Resolve Complaint
+// Allows a partner to mark a task as 'Resolved' and add feedback
+app.patch('/api/partner/complaints/:id/resolve', protect, partner, async (req, res) => {
+  const { feedback } = req.body;
+
+  if (!feedback || feedback.trim().length < 10) {
+    return res.status(400).json({ message: 'Resolution feedback is required (min 10 characters).' });
+  }
+
+  try {
+    const complaint = await Complaint.findOne({
+      _id: req.params.id,
+      assignedTo: req.user._id,
+    });
+
+    if (!complaint) {
+      return res.status(440).json({ message: 'Complaint not found or not assigned to you.' });
+    }
+
+    if (complaint.status !== 'In Progress') {
+      return res.status(400).json({ message: 'Complaint must be "In Progress" to be resolved.' });
+    }
+
+    complaint.status = 'Resolved';
+    complaint.partnerFeedback = feedback; // Save the feedback
+    complaint.resolvedAt = Date.now();  // Mark the time
+    await complaint.save();
+    
+    res.status(200).json(complaint);
+  } catch (error) {
+    console.error('Error resolving complaint:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
 // Admin: Get All Users Endpoint
 app.get('/api/admin/users', protect, admin, async (req, res) => {
   try {
