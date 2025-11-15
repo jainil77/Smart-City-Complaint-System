@@ -134,7 +134,7 @@ function PartnerDashboard() {
     setError('');
     // 1. Calculate the new state first
     const newComplaintsState = complaints.map(complaint =>
-      complaint._id === id ? { ...complaint, status: 'In Process' } : complaint
+      complaint._id === id ? { ...complaint, status: 'In Progress' } : complaint
     );
     // 2. Optimistically update the UI
     setComplaints(newComplaintsState);
@@ -239,7 +239,7 @@ function PartnerDashboard() {
           </button>
         </div>
       );
-    } else if (complaint.status === 'In Process') {
+    } else if (complaint.status === 'In Progress') {
       actionButtons = (
         <button
           onClick={() => setModalState({ isOpen: true, complaint: complaint })}
@@ -277,9 +277,12 @@ function PartnerDashboard() {
         </div>
         
         <div className="border-t border-zinc-700 p-4">
+           
+           {/* --- THIS IS THE UPDATED SECTION --- */}
            {complaint.coordinates && complaint.coordinates.lat ? (
+            // 1. If we have coordinates, show map link
             <a
-              href={`https://www.google.com/maps?q=${complaint.coordinates.lat},${complaint.coordinates.lng}`}
+              href={`http://googleusercontent.com/maps/google.com/0{complaint.coordinates.lat},${complaint.coordinates.lng}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 hover:underline text-sm mb-4"
@@ -287,9 +290,18 @@ function PartnerDashboard() {
               <MapMarkerIcon />
               View on Map
             </a>
+          ) : complaint.address ? (
+            // 2. ELSE if we have a manual address, show that
+            <div className="flex items-start gap-2 text-sm text-zinc-300 mb-4">
+              <span className="text-zinc-500 pt-1"><MapMarkerIcon /></span>
+              <p>{complaint.address}</p>
+            </div>
           ) : (
+            // 3. ELSE show no location
             <div className="text-sm text-zinc-500 mb-4">No Location Provided</div>
           )}
+          {/* --- END OF UPDATE --- */}
+
           {actionButtons}
         </div>
       </div>

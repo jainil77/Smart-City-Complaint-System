@@ -645,7 +645,7 @@ app.post('/api/complaints', protect, upload.single('image'), async (req, res) =>
   console.log('Received req.body:', req.body);
   console.log('Received req.file:', req.file);
   
-  const { title, description, lat, lng } = req.body; 
+  const { title, description, lat, lng,address } = req.body; 
   const imageUrl = req.file ? req.file.path : null; 
 
   if (!title || !description) {
@@ -683,6 +683,7 @@ app.post('/api/complaints', protect, upload.single('image'), async (req, res) =>
         lat: lat ? parseFloat(lat) : null,
         lng: lng ? parseFloat(lng) : null
       },
+      address,
       category: finalCategory(predictedCategory), // 👈 Save the predicted category
     });
 

@@ -145,10 +145,13 @@ function AdminDashboard() {
                   {complaint.assignedTo?.name || <span className="text-zinc-500">Unassigned</span>}
                 </td> */}
                 <td className="p-3 text-sm text-zinc-400 whitespace-nowrap">{new Date(complaint.createdAt).toLocaleDateString()}</td>
+                
+                {/* --- !! THIS IS THE UPDATED LOCATION CELL !! --- */}
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">
                   {complaint.coordinates && complaint.coordinates.lat ? (
+                    // 1. If coordinates exist, show map link
                     <a
-                      href={`https://www.google.com/maps?q=${complaint.coordinates.lat},${complaint.coordinates.lng}`}
+                      href={`http://googleusercontent.com/maps/google.com/0{complaint.coordinates.lat},${complaint.coordinates.lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 hover:underline"
@@ -156,10 +159,18 @@ function AdminDashboard() {
                       <FaMapMarkerAlt />
                       View on Map
                     </a>
+                  ) : complaint.address ? (
+                    // 2. Else, if manual address exists, show it (truncated)
+                    <span className="text-zinc-300" title={complaint.address}>
+                      {complaint.address.length > 30 ? `${complaint.address.substring(0, 30)}...` : complaint.address}
+                    </span>
                   ) : (
+                    // 3. Fallback
                     <span className="text-zinc-500">No Location</span>
                   )}
                 </td>
+                {/* --- END OF UPDATE --- */}
+
                 <td className="p-3 text-sm text-white whitespace-nowrap">{complaint.status}</td>
                 <td className="p-3 text-sm text-white whitespace-nowrap">
                   <div className="flex items-center gap-2">

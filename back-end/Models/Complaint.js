@@ -32,6 +32,10 @@ const complaintSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Location' 
     },
+    address: {
+    type: String,
+    trim: true, // Automatically removes whitespace
+    },
     coordinates: {
         lat: { type: Number },
         lng: { type: Number }

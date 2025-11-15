@@ -50,6 +50,7 @@ function LodgeComplaintPage() {
   const [location, setLocation] = useState(null); // Will store { lat, lng }
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [address, setAddress] = useState('');
   const navigate = useNavigate();
 
   // --- Event Handlers ---
@@ -64,6 +65,7 @@ function LodgeComplaintPage() {
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description);
+    formData.append('address', address);
     if (image) {
       formData.append('image', image);
     }
@@ -132,6 +134,23 @@ function LodgeComplaintPage() {
             onChange={(e) => setDescription(e.target.value)}
             className="w-full p-2 rounded bg-zinc-800 border border-zinc-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="address" className="block text-sm font-medium text-zinc-300">
+            Address 
+          </label>
+          <p className="text-xs text-zinc-400 mb-2">
+            If you don't use the map, please provide a clear address or location.
+          </p>
+          <textarea
+            id="address"
+            rows="3"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="w-full rounded-md border-zinc-600 bg-zinc-700 p-2.5 text-white placeholder-zinc-400 focus:border-purple-500 focus:ring-purple-500"
+            placeholder="e.g., Near City Park, 123 Main St, Pothole at cross-street..."
           />
         </div>
         
