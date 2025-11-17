@@ -115,7 +115,7 @@ function ComplaintDetailsModal({ complaint, onClose }) {
             )}
 
             {/* In Process Logic */}
-            {complaint.status === 'In Process' && (
+            {complaint.status === 'In Progress' && (
                 <div className="bg-blue-900/20 border border-blue-800 p-3 rounded">
                     <h4 className="text-blue-400 font-bold text-sm mb-2">Partner Updates:</h4>
                     <div className="grid grid-cols-2 gap-4">
@@ -161,7 +161,7 @@ function ComplaintDetailsModal({ complaint, onClose }) {
 
 // --- Constants ---
 const CATEGORIES = ['All', 'Hygiene', 'Roads', 'Electricity', 'Water', 'Other', 'Pending Classification'];
-const STATUSES = ['All', 'Pending', 'Admin Accepted', 'Assigned', 'In Process', 'Resolved', 'Rejected'];
+const STATUSES = ['All', 'Pending', 'Admin Accepted', 'Assigned', 'In Progress', 'Resolved', 'Rejected'];
 
 /**
  * Renders the Admin Dashboard for managing complaints.
@@ -320,7 +320,7 @@ function AdminDashboard() {
                     )}
 
                     {/* View Details Button (New) */}
-                    {['In Process', 'Resolved', 'Rejected'].includes(complaint.status) && (
+                    {['In Progress', 'Resolved', 'Rejected'].includes(complaint.status) && (
                       <button onClick={() => openDetailsModal(complaint)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700">
                         Details
                       </button>

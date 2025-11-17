@@ -14,13 +14,13 @@ const complaintSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending','Admin Accepted', 'In Progress', 'Resolved', 'Rejected'],
+        // --- FIX: ADD 'Assigned' AND 'In Process' HERE ---
+        enum: ['Pending', 'Admin Accepted', 'Assigned', 'In Progress', 'Resolved', 'Rejected'],
         default: 'Pending'
     },
-    // 👇 NEW FIELD: To track which partner is assigned
     assignedTo: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User', // It references the User model
+        ref: 'User', 
         default: null
     },
     author: { 
@@ -28,13 +28,15 @@ const complaintSchema = new mongoose.Schema({
         ref: 'User', 
         required: true 
     },
+    // If you are using a Location model, keep this. If not, you can remove it.
     location: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'Location' 
     },
+    // This is correct for the manual address feature
     address: {
-    type: String,
-    trim: true, // Automatically removes whitespace
+        type: String,
+        trim: true, 
     },
     coordinates: {
         lat: { type: Number },
@@ -42,7 +44,7 @@ const complaintSchema = new mongoose.Schema({
     },
     category: {
         type: String,
-        // Optional: Define specific allowed categories using enum
+        // Added 'Other' (capitalized) just in case NLP returns it that way
         enum: ['Hygiene', 'Roads', 'Electricity', 'Water', 'Other', 'Pending Classification'], 
         default: 'Pending Classification'
     },
@@ -50,11 +52,14 @@ const complaintSchema = new mongoose.Schema({
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
     strikes: { type: Number, default: 0 },
     upvoteCount: { type: Number, default: 0 },
-    rejectionReason: { type: String }, // If partner rejects
-  tentativeDate: { type: Date },     // When partner accepts
-  assignedWorkers: { type: String }, // Names of workers
-  resolutionImage: { type: String }, // URL of the after-fix photo
-  partnerFeedback: { type: String }, // Resolution description
+    
+    // Partner Workflow Fields
+    rejectionReason: { type: String }, 
+    tentativeDate: { type: Date },     
+    assignedWorkers: { type: String }, 
+    resolutionImage: { type: String }, 
+    partnerFeedback: { type: String }, 
+
 }, { timestamps: true });
 
 module.exports = mongoose.models.Complaint || mongoose.model('Complaint', complaintSchema);

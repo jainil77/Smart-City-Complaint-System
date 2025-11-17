@@ -9,11 +9,12 @@ const MapMarkerIcon = () => (
 );
 
 // --- Unified Action Modal Component ---
+// This is the component that was incorrect. It now sends all data correctly.
 function ActionModal({ config, onClose, onSubmit }) {
   const [formData, setFormData] = useState({ 
-    text: '', 
-    date: '', 
-    file: null 
+    text: '',  // Used for Reason, Worker Name, OR Feedback
+    date: '',  // Used for Tentative Date
+    file: null // Used for Resolution Image
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -22,36 +23,32 @@ function ActionModal({ config, onClose, onSubmit }) {
     e.preventDefault();
     setError('');
 
-    // Validation
-    if (config.type === 'reject' && formData.text.trim().length < 5) {
-      setError('Please provide a reason for rejection.');
-      return;
-    }
-    if (config.type === 'resolve') {
-      if (formData.text.trim().length < 5) { // Lowered limit slightly for testing
-        setError('Please provide a detailed resolution note.');
-        return;
-      }
-      if (!formData.file) {
-        setError('Please upload a proof of work image.');
-        return;
-      }
-    }
+    // --- Validation ---
     if (config.type === 'accept') {
       if (!formData.date) {
-        setError('Please provide a tentative date.');
-        return;
+        setError('Please provide a tentative date.'); return;
       }
       if (!formData.text || formData.text.trim() === '') {
-        setError('Please provide assigned worker name(s).');
-        return;
+        setError('Please provide assigned worker name(s).'); return;
+      }
+    }
+    if (config.type === 'reject' && formData.text.trim().length < 5) {
+      setError('Please provide a reason for rejection (min 5 chars).'); return;
+    }
+    if (config.type === 'resolve') {
+      if (formData.text.trim().length < 10) {
+        setError('Please provide a detailed resolution note (min 10 chars).'); return;
+      }
+      if (!formData.file) {
+        setError('Please upload a proof of work image.'); return;
       }
     }
 
     setIsSubmitting(true);
     try {
-      await onSubmit(config.complaint._id, formData);
-      // Parent handles closing on success
+      // This 'onSubmit' function is now handleAcceptSubmit, handleRejectSubmit, etc.
+      await onSubmit(config.complaint._id, formData); 
+      onClose(); // Close modal on success
     } catch (err) {
       setError(err.message || 'Action failed. Please try again.');
     } finally {
@@ -169,7 +166,7 @@ function PartnerDashboard() {
 
   const filters = [
     { name: 'New', status: 'Assigned' },
-    { name: 'Active', status: 'In Process' },
+    { name: 'Active', status: 'In Progress' },
     { name: 'Completed', status: 'Resolved' },
   ];
 
@@ -209,33 +206,34 @@ function PartnerDashboard() {
   }, [complaints, filter, filters]);
 
 
-  // --- API Actions (Fixed) ---
+  // --- API Actions ---
 
   const handleAcceptSubmit = async (id, formData) => {
     const newComplaints = complaints.map(c => 
       c._id === id 
-        ? { ...c, status: 'In Process', tentativeDate: formData.date, assignedWorkers: formData.text } 
+        ? { ...c, status: 'In Progress', tentativeDate: formData.date, assignedWorkers: formData.text } 
         : c
     );
     setComplaints(newComplaints);
-    setModalConfig({ ...modalConfig, isOpen: false });
 
     try {
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/accept`, 
-        { tentativeDate: formData.date, assignedWorkers: formData.text }, 
+        { 
+          tentativeDate: formData.date,
+          assignedWorkers: formData.text 
+        }, 
         { withCredentials: true }
       );
       setOriginalComplaints(newComplaints);
     } catch (err) {
       setComplaints(originalComplaints);
-      throw new Error('Failed to accept task.');
+      throw new Error(err.response?.data?.message || 'Failed to accept task.');
     }
   };
 
   const handleRejectSubmit = async (id, formData) => {
     const newComplaints = complaints.filter(c => c._id !== id);
     setComplaints(newComplaints);
-    setModalConfig({ ...modalConfig, isOpen: false });
 
     try {
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/reject`, 
@@ -245,39 +243,39 @@ function PartnerDashboard() {
       setOriginalComplaints(newComplaints);
     } catch (err) {
       setComplaints(originalComplaints);
-      throw new Error('Failed to reject task.');
+      throw new Error(err.response?.data?.message || 'Failed to reject task.');
     }
   };
 
-  // --- !! CRITICAL FIX HERE !! ---
+  // --- !! THIS IS THE MAIN FIX !! ---
   const handleResolveSubmit = async (id, formData) => {
     // 1. Optimistic Update
     const newComplaints = complaints.map(c => 
       c._id === id ? { ...c, status: 'Resolved', partnerFeedback: formData.text } : c
     );
     setComplaints(newComplaints);
-    setModalConfig({ ...modalConfig, isOpen: false });
 
     try {
+      // 2. Prepare FormData (this is what you were missing)
       const payload = new FormData();
       payload.append('feedback', formData.text);
       payload.append('image', formData.file);
 
-      // 2. Send API Call - REMOVED MANUAL HEADER
+      // 3. Send API Call
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/resolve`, 
-        payload, 
+        payload, // Send payload, not JSON
         { 
           withCredentials: true 
-          // Do NOT set Content-Type here. Browser will do it.
+          // Do NOT set Content-Type header manually
         }
       );
       setOriginalComplaints(newComplaints);
     } catch (err) {
-      setComplaints(originalComplaints);
-      throw new Error('Failed to resolve task. ' + (err.response?.data?.message || ''));
+      setComplaints(originalComplaints); // Revert
+      throw new Error(err.response?.data?.message || 'Failed to resolve task.');
     }
   };
-
+  
   const handleWorkerUpdate = async (id, workerNames) => {
     setComplaints(prev => prev.map(c => c._id === id ? { ...c, assignedWorkers: workerNames } : c));
     try {
@@ -289,13 +287,14 @@ function PartnerDashboard() {
       console.error("Failed to update workers");
     }
   };
+  // --- END OF FIX ---
 
 
   const renderTable = () => {
+    // ... (rest of the table rendering logic is unchanged) ...
     if (filteredComplaints.length === 0) {
       return <p className="text-center text-zinc-400 mt-8">No tasks in the "{filter}" category.</p>;
     }
-
     return (
       <div className="overflow-x-auto rounded-lg border border-zinc-700 mt-6">
         <table className="min-w-full bg-zinc-900">
@@ -361,7 +360,7 @@ function PartnerDashboard() {
                       <button onClick={() => setModalConfig({ isOpen: true, type: 'reject', complaint })} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">Reject</button>
                     </div>
                   )}
-                  {complaint.status === 'In Process' && (
+                  {complaint.status === 'In Progress' && (
                     <button onClick={() => setModalConfig({ isOpen: true, type: 'resolve', complaint })} className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs">Resolve</button>
                   )}
                   {complaint.status === 'Resolved' && <span className="text-green-500 font-semibold text-xs">Done</span>}

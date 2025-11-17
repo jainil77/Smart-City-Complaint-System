@@ -288,7 +288,7 @@ app.patch('/api/partner/complaints/:id/resolve', protect, partner, upload.single
     }
 
     // Ensure the status matches what you set in the Accept route ('In Process')
-    if (complaint.status !== 'In Process') {
+    if (complaint.status !== 'In Progress') {
       return res.status(400).json({ message: 'Complaint must be "In Process" to be resolved.' });
     }
 
