@@ -50,6 +50,11 @@ const complaintSchema = new mongoose.Schema({
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
     strikes: { type: Number, default: 0 },
     upvoteCount: { type: Number, default: 0 },
+    rejectionReason: { type: String }, // If partner rejects
+  tentativeDate: { type: Date },     // When partner accepts
+  assignedWorkers: { type: String }, // Names of workers
+  resolutionImage: { type: String }, // URL of the after-fix photo
+  partnerFeedback: { type: String }, // Resolution description
 }, { timestamps: true });
 
 module.exports = mongoose.models.Complaint || mongoose.model('Complaint', complaintSchema);

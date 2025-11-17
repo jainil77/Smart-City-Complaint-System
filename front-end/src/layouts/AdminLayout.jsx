@@ -1,20 +1,24 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Header from '../components/Header';
-import AdminLeftSidebar from '../components/AdminLeftSidebar';
+// Adjust this import path to match where your sidebar is located
+import AdminLeftSidebar from '../components/AdminLeftSidebar'; 
 
 function AdminLayout() {
   return (
-    <div className="bg-black text-white min-h-screen">
-    
-      <div className="mx-auto p-4 md:p-8 w-full grid md:grid-cols-[224px_1fr] gap-8">
-        {/* Sidebar remains hidden on small screens (handled within its component) */}
-        <AdminLeftSidebar />
-        {/* Ensure main takes full width by default */}
-        <main className="w-full overflow-x-auto"> 
-          <Outlet />
-        </main>
-      </div>
+    // 1. h-screen: Forces the layout to be exactly the height of the window
+    // 2. overflow-hidden: Prevents the whole browser window from having double scrollbars
+    <div className="flex h-screen bg-black overflow-hidden">
+      
+      {/* Your Sidebar remains fixed on the left */}
+      <AdminLeftSidebar />
+
+      {/* Main Content Area */}
+      {/* 1. flex-1: Takes up all remaining width */}
+      {/* 2. overflow-y-auto: THIS IS THE FIX. It allows this specific area to scroll vertically */}
+      <main className="flex-1 overflow-y-auto p-4 relative">
+        {/* This renders your AdminDashboard */}
+        <Outlet />
+      </main>
     </div>
   );
 }

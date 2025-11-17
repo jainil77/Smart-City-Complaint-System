@@ -20,6 +20,8 @@ import AddLocationPage from './pages/AddLocationPage.jsx';
 import MapPage from './pages/MapPage.jsx';
 import CreateStaffPage from './pages/CreateStaffPage.jsx';
 import PartnerDashboard from './pages/PartnerDashboard.jsx';
+import AssignedComplaints from './pages/AssignedComplaints.jsx';
+import Dashboard from './pages/Dashboard.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -53,8 +55,10 @@ export const router = createBrowserRouter([
       </RoleProtectedRoute>
     ),
     children: [
-      { index: true, element: <AdminDashboard /> },
+      { index: true, element: <Dashboard /> },
       { path: 'users', element: <UserManagementPage /> }, 
+      {path:'assigned-complaints' , element:<AssignedComplaints />},
+      {path:'complaints-managment' ,element:<AdminDashboard/>}
     ],
   },
       {

@@ -177,13 +177,24 @@ app.get('/api/partner/complaints', protect, partner, async (req, res) => {
 
 // 2. PATCH Partner: Accept Complaint
 // Allows a partner to accept a task, changing status to 'In Process'
+// PATCH Partner: Accept Complaint
+// Requires: tentativeDate AND assignedWorkers
 app.patch('/api/partner/complaints/:id/accept', protect, partner, async (req, res) => {
+  const { tentativeDate, assignedWorkers } = req.body;
+
+  // 1. Validate Input: Ensure both fields are present
+  if (!tentativeDate || !assignedWorkers) {
+    return res.status(400).json({ message: 'Both tentative date and assigned worker names are required.' });
+  }
+
   try {
+    // 2. Find the complaint AND ensure it belongs to this partner
     const complaint = await Complaint.findOne({
       _id: req.params.id,
       assignedTo: req.user._id,
     });
 
+    // 3. Security Checks
     if (!complaint) {
       return res.status(404).json({ message: 'Complaint not found or not assigned to you.' });
     }
@@ -192,7 +203,11 @@ app.patch('/api/partner/complaints/:id/accept', protect, partner, async (req, re
       return res.status(400).json({ message: 'Complaint is not in "Assigned" status.' });
     }
 
-    complaint.status = 'In Progress';
+    // 4. Update Fields
+    complaint.status = 'In Progress'; // Matches your frontend "Active" filter
+    complaint.tentativeDate = tentativeDate;
+    complaint.assignedWorkers = assignedWorkers; // Store the worker name(s)
+
     await complaint.save();
     
     res.status(200).json(complaint);
@@ -202,9 +217,18 @@ app.patch('/api/partner/complaints/:id/accept', protect, partner, async (req, re
   }
 });
 
+
+
 // 3. PATCH Partner: Reject Complaint
-// Allows a partner to reject a task, setting it back to 'Pending'
+// PATCH Partner: Reject Complaint
+// Requires: reason
 app.patch('/api/partner/complaints/:id/reject', protect, partner, async (req, res) => {
+  const { reason } = req.body;
+
+  if (!reason || reason.trim() === '') {
+    return res.status(400).json({ message: 'Rejection reason is required.' });
+  }
+
   try {
     const complaint = await Complaint.findOne({
       _id: req.params.id,
@@ -215,16 +239,18 @@ app.patch('/api/partner/complaints/:id/reject', protect, partner, async (req, re
       return res.status(404).json({ message: 'Complaint not found or not assigned to you.' });
     }
 
-    // Partner can only reject a newly 'Assigned' task
     if (complaint.status !== 'Assigned') {
       return res.status(400).json({ message: 'Cannot reject a complaint that is already in progress.' });
     }
 
-    complaint.status = 'Pending'; // Go back to admin pool
-    complaint.assignedTo = null; // Un-assign from this partner
+    // --- THIS IS THE CHANGE ---
+    complaint.status = 'Rejected';       // Set status to Rejected so it appears in the filter
+    // complaint.assignedTo = null;      // <--- DELETE OR COMMENT OUT THIS LINE. Keep the partner attached!
+    complaint.rejectionReason = reason;  
+
     await complaint.save();
     
-    res.status(200).json({ message: 'Complaint rejected and returned to admin pool.' });
+    res.status(200).json({ message: 'Complaint rejected.' });
   } catch (error) {
     console.error('Error rejecting complaint:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -233,30 +259,45 @@ app.patch('/api/partner/complaints/:id/reject', protect, partner, async (req, re
 
 // 4. PATCH Partner: Resolve Complaint
 // Allows a partner to mark a task as 'Resolved' and add feedback
-app.patch('/api/partner/complaints/:id/resolve', protect, partner, async (req, res) => {
+// PATCH Partner: Resolve Complaint
+// Requires: feedback (min 10 chars) AND image
+app.patch('/api/partner/complaints/:id/resolve', protect, partner, upload.single('image'), async (req, res) => {
   const { feedback } = req.body;
+  // Get image path from Cloudinary (or local storage)
+  const imagePath = req.file ? req.file.path : null; 
 
+  // 1. Validate Input
   if (!feedback || feedback.trim().length < 10) {
     return res.status(400).json({ message: 'Resolution feedback is required (min 10 characters).' });
   }
+  
+  if (!imagePath) {
+    return res.status(400).json({ message: 'Proof of work (Image) is required to resolve the complaint.' });
+  }
 
   try {
+    // 2. Find the complaint AND ensure it belongs to this partner
     const complaint = await Complaint.findOne({
       _id: req.params.id,
       assignedTo: req.user._id,
     });
 
+    // 3. Security Checks
     if (!complaint) {
-      return res.status(440).json({ message: 'Complaint not found or not assigned to you.' });
+      return res.status(404).json({ message: 'Complaint not found or not assigned to you.' });
     }
 
-    if (complaint.status !== 'In Progress') {
-      return res.status(400).json({ message: 'Complaint must be "In Progress" to be resolved.' });
+    // Ensure the status matches what you set in the Accept route ('In Process')
+    if (complaint.status !== 'In Process') {
+      return res.status(400).json({ message: 'Complaint must be "In Process" to be resolved.' });
     }
 
+    // 4. Update Fields
     complaint.status = 'Resolved';
-    complaint.partnerFeedback = feedback; // Save the feedback
-    complaint.resolvedAt = Date.now();  // Mark the time
+    complaint.partnerFeedback = feedback;   // Save the description
+    complaint.resolutionImage = imagePath;  // Save the image URL
+    complaint.resolvedAt = Date.now();      // Timestamp the resolution
+
     await complaint.save();
     
     res.status(200).json(complaint);
@@ -265,6 +306,16 @@ app.patch('/api/partner/complaints/:id/resolve', protect, partner, async (req, r
     res.status(500).json({ message: 'Server Error' });
   }
 });
+
+app.patch('/api/partner/complaints/:id/workers', protect, partner, async (req, res) => {
+  const { workers } = req.body;
+  const complaint = await Complaint.findByIdAndUpdate(req.params.id, {
+    assignedWorkers: workers
+  }, { new: true });
+  res.json(complaint);
+});
+
+
 // Admin: Get All Users Endpoint
 app.get('/api/admin/users', protect, admin, async (req, res) => {
   try {
@@ -317,7 +368,8 @@ app.patch('/api/admin/users/:userId/block', protect, admin, async (req, res) => 
 app.get('/api/admin/complaints/all', protect, admin, async (req, res) => {
   try {
     const complaints = await Complaint.find({}) // Fetch all complaints
-      .populate('author', 'anonymousName email') // Get author's anon name and maybe email for admin view
+      .populate('author', 'anonymousName email')// Get author's anon name and maybe email for admin view
+      .populate('assignedTo', 'name email') 
       .sort({ createdAt: -1 }); // Sort by newest first
 
     res.status(200).json(complaints);
