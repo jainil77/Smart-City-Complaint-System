@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom'; // 👈 Import useLocation
+import { Link, useLocation } from 'react-router-dom'; 
 
 function LeftSidebar() {
   const location = useLocation(); // Get the current URL
