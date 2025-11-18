@@ -12,6 +12,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 const Location = require('./Models/Location');
 const manager = require('./nlp-config.js');
+const Zone = require('./Models/Zone');
 
 require('dotenv').config(); 
 
@@ -307,6 +308,28 @@ app.patch('/api/partner/complaints/:id/resolve', protect, partner, upload.single
   }
 });
 
+// 1. CREATE ZONE (Super Admin Only)
+app.post('/api/superadmin/zones', protect, superAdmin, async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const zone = await Zone.create({ name, description });
+    res.status(201).json(zone);
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating zone' });
+  }
+});
+
+// 2. GET ALL ZONES (Public or Protected)
+// Needed for dropdowns in frontend forms
+app.get('/api/zones', async (req, res) => {
+  try {
+    const zones = await Zone.find({});
+    res.status(200).json(zones);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching zones' });
+  }
+});
+
 app.patch('/api/partner/complaints/:id/workers', protect, partner, async (req, res) => {
   const { workers } = req.body;
   const complaint = await Complaint.findByIdAndUpdate(req.params.id, {
@@ -365,12 +388,23 @@ app.patch('/api/admin/users/:userId/block', protect, admin, async (req, res) => 
 });
 
 // Admin: Get All Complaints with Author Details
+// Admin: Get All Complaints (Filtered by Zone)
 app.get('/api/admin/complaints/all', protect, admin, async (req, res) => {
   try {
-    const complaints = await Complaint.find({}) // Fetch all complaints
-      .populate('author', 'anonymousName email')// Get author's anon name and maybe email for admin view
+    // 1. Create a dynamic filter
+    const filter = {};
+    
+    // 2. If the logged-in Admin has a Zone assigned, restrict the query
+    if (req.user.zone) {
+      filter.zone = req.user.zone;
+    }
+
+    // 3. Find complaints matching the filter
+    const complaints = await Complaint.find(filter) 
+      .populate('author', 'anonymousName email')
       .populate('assignedTo', 'name email') 
-      .sort({ createdAt: -1 }); // Sort by newest first
+      .populate('zone', 'name') // Optional: Populate zone details to display name
+      .sort({ createdAt: -1 });
 
     res.status(200).json(complaints);
   } catch (error) {
@@ -432,7 +466,7 @@ app.post('/api/superadmin/locations', protect, superAdmin, async (req, res) => {
 // Super Admin: Create Staff (Admin/Partner) Endpoint
 app.post('/api/superadmin/create-staff', protect, superAdmin, async (req, res) => {
   // We now expect 'role' and 'category' from the form
-  const { name, email, password, role, category } = req.body;
+  const { name, email, password, role, category,zone } = req.body;
 
   // --- 1. Validation ---
   if (!name || !email || !password || !role) {
@@ -471,6 +505,7 @@ app.post('/api/superadmin/create-staff', protect, superAdmin, async (req, res) =
       role: role, // Set the role from the form
       category: role === 'partner' ? category : null, // Set category ONLY for partners
       isVerified: true, // Assume Super Admin creates verified accounts
+      zone:zone,
     });
 
     // --- 4. Send back the new user's data ---
@@ -507,8 +542,32 @@ app.get('/api/superadmin/users', protect, superAdmin, async (req, res) => {
   }
 });
 
+// Super Admin: Get All Complaints (With Optional Zone Filter)
+app.get('/api/superadmin/complaints', protect, superAdmin, async (req, res) => {
+  try {
+    const { zone } = req.query;
+    const filter = {};
+
+    // If a specific zone is selected (and it's not "All"), filter by it
+    if (zone && zone !== 'All') {
+      filter.zone = zone;
+    }
+
+    const complaints = await Complaint.find(filter)
+      .populate('assignedTo', 'name') // Populate partner name for leaderboard
+      .populate('zone', 'name')       // Populate zone name
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(complaints);
+  } catch (error) {
+    console.error('Error fetching superadmin complaints:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 
 // Admin: Get Partners by Category with Workload
+// Admin: Get Partners by Category (Filtered by Admin's Zone)
 app.get('/api/admin/partners', protect, admin, async (req, res) => {
  const { category } = req.query; 
 
@@ -517,20 +576,31 @@ app.get('/api/admin/partners', protect, admin, async (req, res) => {
  }
 
  try {
-  const partners = await User.find({ role: 'partner', category: category })
-   .select('name anonymousName email');
+  // 1. Create a dynamic filter
+  const filter = { 
+    role: 'partner', 
+    category: category 
+  };
   
-  const partnersWithWorkload = await Promise.all(partners.map(async (partner) => {
-   
-      // --- THIS IS THE FIX ---
-      // We now count complaints that are EITHER "Assigned" OR "In Process"
-   const workload = await Complaint.countDocuments({ 
-    assignedTo: partner._id,
-    status: { $in: ["Assigned", "In Process"] } 
-   });
-      // --- END OF FIX ---
+  // 2. If the logged-in Admin has a Zone assigned, restrict the query
+  if (req.user.zone) {
+    filter.zone = req.user.zone;
+  }
 
-   return { ...partner.toObject(), workload }; 
+  // 3. Find partners matching the filter
+  const partners = await User.find(filter)
+    .select('name anonymousName email');
+  
+  // 4. Calculate workload for the filtered partners
+  const partnersWithWorkload = await Promise.all(partners.map(async (partner) => {
+    
+    // This workload logic is correct
+    const workload = await Complaint.countDocuments({ 
+      assignedTo: partner._id,
+      status: { $in: ["Assigned", "In Process"] } 
+    });
+
+    return { ...partner.toObject(), workload }; 
   }));
   
   res.status(200).json(partnersWithWorkload);
@@ -691,52 +761,35 @@ app.post('/api/auth/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Create Complaint Endpoint with NLP Classification
+// Create Complaint Endpoint (Manual Category & Zone Selection)
 app.post('/api/complaints', protect, upload.single('image'), async (req, res) => {
 
-  console.log('Received req.body:', req.body);
-  console.log('Received req.file:', req.file);
+  console.log('--- CREATE COMPLAINT REQUEST ---');
+  console.log('Body:', req.body);
   
-  const { title, description, lat, lng,address } = req.body; 
+  // 1. Extract all fields including 'category' and 'zone'
+  const { title, description, category, zone, lat, lng, address } = req.body; 
   const imageUrl = req.file ? req.file.path : null; 
 
-  if (!title || !description) {
-    return res.status(400).json({ message: 'Please provide a title and description.' });
+  // 2. Validation
+  if (!title || !description || !category || !zone) {
+    return res.status(400).json({ message: 'Please provide title, description, category, and zone.' });
   }
 
   try {
-    // --- 👇 NLP Classification Step 👇 ---
-    const nlpResponse = await manager.process('en', description);
-    const predictedCategory = nlpResponse.intent.startsWith('category.') 
-      ? nlpResponse.intent.split('.')[1] // Extracts 'hygiene' from 'category.hygiene'
-      : 'Other'; // Fallback category
-
-    // Map the result to your schema's enum values
-    // Example: 'hygiene' -> 'Hygiene'
-    const finalCategory = (categoryMap) => {
-      const map = {
-        'hygiene': 'Hygiene',
-        'roads': 'Roads',
-        'electricity': 'Electricity',
-        'water': 'Water',
-        'other': 'Other',
-        // Add other mappings here
-      };
-      return map[categoryMap] || 'Other';
-    };
-    // --- 👆 End of NLP Step 👆 ---
-
+    // 3. Create the complaint directly
     const complaint = await Complaint.create({
       title,
       description,
-      author: req.user._id,
+      category, // <--- Directly use the value from the dropdown
+      zone,     // <--- Assign to the specific zone
+      address,
       image: imageUrl,
       coordinates: {
         lat: lat ? parseFloat(lat) : null,
         lng: lng ? parseFloat(lng) : null
       },
-      address,
-      category: finalCategory(predictedCategory), // 👈 Save the predicted category
+      author: req.user._id,
     });
 
     res.status(201).json(complaint);

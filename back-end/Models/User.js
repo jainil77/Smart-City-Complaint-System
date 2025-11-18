@@ -27,6 +27,11 @@ const userSchema = new mongoose.Schema({
         enum: ['Hygiene', 'Roads', 'Electricity', 'Water', 'Other', null], 
         default: null // Will be null for users, admins, and superadmins
     },
+    zone: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Zone',
+    default: null, // Superadmins might not have a zone, ordinary users might select one later
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);

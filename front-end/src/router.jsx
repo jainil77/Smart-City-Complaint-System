@@ -22,6 +22,7 @@ import CreateStaffPage from './pages/CreateStaffPage.jsx';
 import PartnerDashboard from './pages/PartnerDashboard.jsx';
 import AssignedComplaints from './pages/AssignedComplaints.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import SuperAdminStats from './pages/SuperAdminStats.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -69,7 +70,7 @@ export const router = createBrowserRouter([
       </RoleProtectedRoute>
     ),
     children: [
-      { index: true, element: <SuperAdminDashboardPage /> }, 
+      { index: true, element: <SuperAdminStats /> }, 
       { path: 'users', element: <UserManagementPage /> }, 
       { path: 'users/:userId', element: <UserComplaintListPage /> }, 
       { path: 'add-location', element: <AddLocationPage/> },

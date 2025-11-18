@@ -1,200 +1,198 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css'; // Make sure to import Leaflet's CSS
-import L from 'leaflet';
+import { toast } from 'react-hot-toast'; 
+import { FaCamera, FaMapMarkerAlt } from 'react-icons/fa';
 
-// --- Fix for default Leaflet icon ---
-// This ensures the marker icons appear correctly in React.
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const CATEGORIES = ['Roads', 'Water', 'Electricity', 'Hygiene', 'Other'];
 
-/**
- * A component to render a clickable marker on the map.
- * It updates its position based on user clicks.
- */
-function ClickableMarker({ position, setPosition }) {
-  const map = useMapEvents({
-    click(e) {
-      // On a map click, update the position in the parent form's state
-      setPosition(e.latlng);
-      // Fly the map to the new position
-      map.flyTo(e.latlng, map.getZoom());
-    },
-  });
-
-  // Render the marker only if a position has been set
-  return position === null ? null : <Marker position={position}></Marker>;
-}
-
-// Define the bounding box for Surat (SouthWest_corner, NorthEast_corner)
-const suratBounds = [
-  [21.05, 72.7], // SW corner
-  [21.3, 72.95], // NE corner
-];
-
-/**
- * A page component for lodging a new complaint.
- * Includes fields for title, description, image, and a map-based location picker.
- */
-function LodgeComplaintPage() {
-  // --- State Management ---
+function LodgeComplaint() {
+  const navigate = useNavigate();
+  
+  // --- Form State ---
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [image, setImage] = useState(null);
-  const [location, setLocation] = useState(null); // Will store { lat, lng }
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [category, setCategory] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
   const [address, setAddress] = useState('');
-  const navigate = useNavigate();
+  const [image, setImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  
+  // --- Data State ---
+  const [zones, setZones] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [fetchingZones, setFetchingZones] = useState(true);
 
-  // --- Event Handlers ---
+  // 1. Fetch Zones on Mount
+  useEffect(() => {
+    const fetchZones = async () => {
+      try {
+        const res = await axios.get('http://localhost:8080/api/zones');
+        setZones(res.data || []);
+      } catch (error) {
+        console.error("Failed to load zones", error);
+        toast.error("Could not load city zones.");
+      } finally {
+        setFetchingZones(false);
+      }
+    };
+    fetchZones();
+  }, []);
 
-  // Handles the final form submission
+  // 2. Handle Image Selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  // 3. Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    
+    if (!title || !description || !category || !selectedZone) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
 
-    // FormData is required to send files (images) and text together
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('description', description);
-    formData.append('address', address);
-    if (image) {
-      formData.append('image', image);
-    }
-    if (location) {
-      formData.append('lat', location.lat);
-      formData.append('lng', location.lng);
-    }
+    setLoading(true);
 
     try {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('category', category);
+      formData.append('zone', selectedZone);
+      formData.append('address', address);
+
+      if (image) {
+        formData.append('image', image);
+      }
+
       await axios.post('http://localhost:8080/api/complaints', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
         withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
-      // On success, redirect to the homepage
-      navigate('/');
-    } catch (err) {
-      setError('Failed to submit complaint. Please try again.');
-      console.error('Complaint submission error:', err);
+
+      toast.success("Complaint submitted successfully!");
+      navigate('/my-complaints'); 
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to lodge complaint.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Updates the image state when a file is selected
-  const handleImageChange = (e) => {
-    setImage(e.target.files[0]);
-  };
-
-  // --- JSX Rendering ---
   return (
-    // Responsive container with scrolling
-    <div className="max-w-2xl mx-auto p-4 md:p-8 h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <h1 className="text-3xl font-bold text-white mb-6">Lodge a New Complaint</h1>
-      {/* Responsive padding on the form */}
-      <form onSubmit={handleSubmit} className="bg-zinc-900 p-4 md:p-8 rounded-lg shadow-lg border border-zinc-700">
-        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
-        
-        {/* Title */}
-        <div className="mb-4">
-          <label className="block text-zinc-400 mb-2" htmlFor="title">Title</label>
-          <select
-  id="title"
-  value={title}
-  onChange={(e) => setTitle(e.target.value)}
-  className="w-full p-2 rounded bg-zinc-800 border border-zinc-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-  required
->
-  <option value="">Select Category</option>
-  <option value="Roads">Roads</option>
-  <option value="Hygiene">Hygiene</option>
-  <option value="Electricity">Electricity</option>
-  <option value="Water">Water</option>
-</select>
-        </div>
-        
-        {/* Description */}
-        <div className="mb-4">
-          <label className="block text-zinc-400 mb-2" htmlFor="description">Description</label>
-          <textarea
-            id="description"
-            rows="5"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full p-2 rounded bg-zinc-800 border border-zinc-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            required
-          />
-        </div>
+    // --- FIX IS HERE: Changed layout to allow scrolling ---
+    <div className="h-screen bg-black overflow-y-auto p-6 flex justify-center items-start pt-10 pb-20">
+      
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 w-full max-w-2xl shadow-2xl mb-10">
+        <h1 className="text-3xl font-bold text-white mb-2">Lodge a Complaint</h1>
+        <p className="text-zinc-400 mb-8">Report an issue in your area to the city council.</p>
 
-        <div>
-          <label htmlFor="address" className="block text-sm font-medium text-zinc-300">
-            Address 
-          </label>
-          <p className="text-xs text-zinc-400 mb-2">
-            If you don't use the map, please provide a clear address or location.
-          </p>
-          <textarea
-            id="address"
-            rows="3"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="w-full rounded-md border-zinc-600 bg-zinc-700 p-2.5 text-white placeholder-zinc-400 focus:border-purple-500 focus:ring-purple-500"
-            placeholder="e.g., Near City Park, 123 Main St, Pothole at cross-street..."
-          />
-        </div>
-        
-        {/* Image Upload */}
-        <div className="mb-6">
-          <label className="block text-zinc-400 mb-2" htmlFor="image">Image</label>
-          <input
-            type="file"
-            id="image"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="w-full text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
-          />
-        </div>
-        
-        {/* Location Picker */}
-        <div className="mb-6">
-          <label className="block text-zinc-400 mb-2" htmlFor="location">Location (Click on the map)</label>
-          <MapContainer 
-            center={[21.1702, 72.8311]} // Center on Surat
-            zoom={13} 
-            maxBounds={suratBounds}     // Restrict map to Surat
-            minZoom={12}                // Don't allow zooming out too far
-            className="h-64 w-full rounded-lg border border-zinc-700"
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">Complaint Title</label>
+            <input 
+              type="text" 
+              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="e.g., Deep pothole on Main St."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
-            <ClickableMarker position={location} setPosition={setLocation} />
-          </MapContainer>
-        </div>
-        
-        {/* Submit Button */}
-        <button 
-          type="submit" 
-          disabled={loading}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Submitting...' : 'Submit Complaint'}
-        </button>
-      </form>
+          </div>
+
+          {/* Category & Zone Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Category</label>
+              <select 
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="">Select Category</option>
+                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Zone / Ward</label>
+              <select 
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-purple-500 outline-none"
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                disabled={fetchingZones}
+              >
+                <option value="">{fetchingZones ? "Loading Zones..." : "Select Zone"}</option>
+                {zones.map(zone => (
+                  <option key={zone._id} value={zone._id}>{zone.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">Description</label>
+            <textarea 
+              rows="4"
+              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="Describe the issue in detail..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Address (Manual) */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2 flex items-center gap-2">
+              <FaMapMarkerAlt /> Address / Location
+            </label>
+            <textarea
+              rows="2"
+              className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="e.g., Near Central Park Gate 2, 123 Green Avenue"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">Upload Evidence (Optional)</label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white py-2 px-4 rounded-lg transition-colors">
+                <FaCamera />
+                <span>Choose File</span>
+                <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+              </label>
+              {previewUrl && (
+                <img src={previewUrl} alt="Preview" className="h-12 w-12 object-cover rounded-lg border border-zinc-600" />
+              )}
+              {image && <span className="text-xs text-zinc-500">{image.name}</span>}
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Submitting...' : 'Lodge Complaint'}
+          </button>
+
+        </form>
+      </div>
     </div>
   );
 }
 
-export default LodgeComplaintPage;
+export default LodgeComplaint;

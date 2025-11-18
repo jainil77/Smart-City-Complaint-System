@@ -59,6 +59,11 @@ const complaintSchema = new mongoose.Schema({
     assignedWorkers: { type: String }, 
     resolutionImage: { type: String }, 
     partnerFeedback: { type: String }, 
+    zone: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Zone',
+    required: true, // Mandatory for routing
+  },
 
 }, { timestamps: true });
 
