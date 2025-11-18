@@ -1,21 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
+import { FaClipboardList, FaRunning, FaCheckCircle, FaBan } from 'react-icons/fa';
 
-// --- Inline SVG Icon ---
+// --- 1. Inline Map Icon ---
 const MapMarkerIcon = () => (
   <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 384 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">
     <path d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0zM192 272c44.183 0 80-35.817 80-80s-35.817-80-80-80-80 35.817-80 80 35.817 80 80 80z"></path>
   </svg>
 );
 
-// --- Unified Action Modal Component ---
-// This is the component that was incorrect. It now sends all data correctly.
+// --- 2. Unified Action Modal ---
 function ActionModal({ config, onClose, onSubmit }) {
-  const [formData, setFormData] = useState({ 
-    text: '',  // Used for Reason, Worker Name, OR Feedback
-    date: '',  // Used for Tentative Date
-    file: null // Used for Resolution Image
-  });
+  const [formData, setFormData] = useState({ text: '', date: '', file: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,7 +19,18 @@ function ActionModal({ config, onClose, onSubmit }) {
     e.preventDefault();
     setError('');
 
-    // --- Validation ---
+    // Validation
+    if (config.type === 'reject' && formData.text.trim().length < 5) {
+      setError('Please provide a reason for rejection.'); return;
+    }
+    if (config.type === 'resolve') {
+      if (formData.text.trim().length < 5) {
+        setError('Please provide a detailed resolution note.'); return;
+      }
+      if (!formData.file) {
+        setError('Please upload a proof of work image.'); return;
+      }
+    }
     if (config.type === 'accept') {
       if (!formData.date) {
         setError('Please provide a tentative date.'); return;
@@ -32,23 +39,11 @@ function ActionModal({ config, onClose, onSubmit }) {
         setError('Please provide assigned worker name(s).'); return;
       }
     }
-    if (config.type === 'reject' && formData.text.trim().length < 5) {
-      setError('Please provide a reason for rejection (min 5 chars).'); return;
-    }
-    if (config.type === 'resolve') {
-      if (formData.text.trim().length < 10) {
-        setError('Please provide a detailed resolution note (min 10 chars).'); return;
-      }
-      if (!formData.file) {
-        setError('Please upload a proof of work image.'); return;
-      }
-    }
 
     setIsSubmitting(true);
     try {
-      // This 'onSubmit' function is now handleAcceptSubmit, handleRejectSubmit, etc.
-      await onSubmit(config.complaint._id, formData); 
-      onClose(); // Close modal on success
+      await onSubmit(config.complaint._id, formData);
+      onClose(); 
     } catch (err) {
       setError(err.message || 'Action failed. Please try again.');
     } finally {
@@ -64,71 +59,37 @@ function ActionModal({ config, onClose, onSubmit }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
       <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-white mb-4">{title}</h3>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* REJECT: Reason Input */}
           {config.type === 'reject' && (
             <div>
               <label className="block text-sm text-zinc-400 mb-1">Reason for Rejection</label>
-              <textarea 
-                required 
-                rows="3"
-                className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-red-500 focus:ring-red-500"
-                placeholder="Why are you rejecting this task?"
-                onChange={(e) => setFormData({...formData, text: e.target.value})} 
-              />
+              <textarea required rows="3" className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-red-500" placeholder="Why are you rejecting this task?" onChange={(e) => setFormData({...formData, text: e.target.value})} />
             </div>
           )}
 
-          {/* ACCEPT: Date & Worker Input */}
           {config.type === 'accept' && (
             <>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Tentative Completion Date</label>
-                <input 
-                  type="date" 
-                  required 
-                  min={new Date().toISOString().split("T")[0]}
-                  className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-green-500 focus:ring-green-500"
-                  onChange={(e) => setFormData({...formData, date: e.target.value})} 
-                />
+                <input type="date" required min={new Date().toISOString().split("T")[0]} className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-green-500" onChange={(e) => setFormData({...formData, date: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Assigned Worker(s)</label>
-                <input 
-                  type="text" 
-                  required 
-                  placeholder="e.g., John Doe, Team A"
-                  className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-green-500 focus:ring-green-500"
-                  onChange={(e) => setFormData({...formData, text: e.target.value})} 
-                />
+                <input type="text" required placeholder="e.g., John Doe, Team A" className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-green-500" onChange={(e) => setFormData({...formData, text: e.target.value})} />
               </div>
             </>
           )}
 
-          {/* RESOLVE: Image + Desc */}
           {config.type === 'resolve' && (
             <>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Resolution Description</label>
-                <textarea 
-                  required 
-                  rows="3"
-                  className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-purple-500 focus:ring-purple-500"
-                  placeholder="Describe how the issue was fixed..."
-                  onChange={(e) => setFormData({...formData, text: e.target.value})} 
-                />
+                <textarea required rows="3" className="w-full bg-zinc-800 text-white p-2.5 rounded border border-zinc-600 focus:border-purple-500" placeholder="Describe how the issue was fixed..." onChange={(e) => setFormData({...formData, text: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Proof of Work (Image)</label>
-                <input 
-                  type="file" 
-                  required 
-                  accept="image/*" 
-                  className="w-full text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
-                  onChange={(e) => setFormData({...formData, file: e.target.files[0]})} 
-                />
+                <input type="file" required accept="image/*" className="w-full text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" onChange={(e) => setFormData({...formData, file: e.target.files[0]})} />
               </div>
             </>
           )}
@@ -136,16 +97,8 @@ function ActionModal({ config, onClose, onSubmit }) {
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <div className="flex justify-end gap-3 mt-6">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-zinc-300 hover:text-white transition-colors">Cancel</button>
-            <button 
-              type="submit" 
-              disabled={isSubmitting} 
-              className={`px-4 py-2 text-white rounded font-semibold transition-colors ${
-                config.type === 'reject' ? 'bg-red-600 hover:bg-red-700' : 
-                config.type === 'accept' ? 'bg-green-600 hover:bg-green-700' : 
-                'bg-purple-600 hover:bg-purple-700'
-              }`}
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 text-zinc-300 hover:text-white">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className={`px-4 py-2 text-white rounded font-semibold transition-colors ${config.type === 'reject' ? 'bg-red-600 hover:bg-red-700' : config.type === 'accept' ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
               {isSubmitting ? 'Processing...' : 'Confirm'}
             </button>
           </div>
@@ -155,7 +108,7 @@ function ActionModal({ config, onClose, onSubmit }) {
   );
 }
 
-// --- Main Partner Dashboard ---
+// --- 3. Main Partner Dashboard ---
 function PartnerDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [originalComplaints, setOriginalComplaints] = useState([]); 
@@ -164,9 +117,10 @@ function PartnerDashboard() {
   const [filter, setFilter] = useState('New');
   const [modalConfig, setModalConfig] = useState({ isOpen: false, type: '', complaint: null });
 
+  // Correct Status: 'In Progress'
   const filters = [
     { name: 'New', status: 'Assigned' },
-    { name: 'Active', status: 'In Progress' },
+    { name: 'Active', status: 'In Progress' }, 
     { name: 'Completed', status: 'Resolved' },
   ];
 
@@ -174,14 +128,12 @@ function PartnerDashboard() {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('http://localhost:8080/api/partner/complaints', {
-        withCredentials: true,
-      });
+      const response = await axios.get('http://localhost:8080/api/partner/complaints', { withCredentials: true });
       setComplaints(response.data || []);
       setOriginalComplaints(response.data || []); 
     } catch (err) {
-      console.error('Error fetching partner complaints:', err);
-      setError('Failed to fetch assigned complaints.');
+      console.error(err);
+      setError('Failed to fetch tasks.');
     } finally {
       setLoading(false);
     }
@@ -191,11 +143,23 @@ function PartnerDashboard() {
     fetchMyComplaints();
   }, [fetchMyComplaints]);
 
+  // --- Stats ---
+  const stats = useMemo(() => {
+    return {
+      new: complaints.filter(c => c.status === 'Assigned').length,
+      active: complaints.filter(c => c.status === 'In Progress').length,
+      resolved: complaints.filter(c => c.status === 'Resolved').length,
+      rejected: complaints.filter(c => c.status === 'Rejected').length,
+    };
+  }, [complaints]);
+
+  // --- Filtering & Sorting (Active tab sorted by closest date) ---
   const filteredComplaints = useMemo(() => {
     const activeStatus = filters.find(f => f.name === filter)?.status;
-    let result = complaints.filter(c => c.status === activeStatus);
+    let result = [...complaints].filter(c => c.status === activeStatus);
 
-    if (activeStatus === 'In Process') {
+    // Sort Active tasks by Date (Closest first)
+    if (activeStatus === 'In Progress') {
       result.sort((a, b) => {
         if (!a.tentativeDate) return 1;
         if (!b.tentativeDate) return -1;
@@ -205,24 +169,18 @@ function PartnerDashboard() {
     return result;
   }, [complaints, filter, filters]);
 
-
   // --- API Actions ---
 
   const handleAcceptSubmit = async (id, formData) => {
     const newComplaints = complaints.map(c => 
-      c._id === id 
-        ? { ...c, status: 'In Progress', tentativeDate: formData.date, assignedWorkers: formData.text } 
-        : c
+      c._id === id ? { ...c, status: 'In Progress', tentativeDate: formData.date, assignedWorkers: formData.text } : c
     );
     setComplaints(newComplaints);
+    setModalConfig({ ...modalConfig, isOpen: false });
 
     try {
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/accept`, 
-        { 
-          tentativeDate: formData.date,
-          assignedWorkers: formData.text 
-        }, 
-        { withCredentials: true }
+        { tentativeDate: formData.date, assignedWorkers: formData.text }, { withCredentials: true }
       );
       setOriginalComplaints(newComplaints);
     } catch (err) {
@@ -232,69 +190,50 @@ function PartnerDashboard() {
   };
 
   const handleRejectSubmit = async (id, formData) => {
-    const newComplaints = complaints.filter(c => c._id !== id);
+    const newComplaints = complaints.map(c => c._id === id ? { ...c, status: 'Rejected', rejectionReason: formData.text } : c);
     setComplaints(newComplaints);
+    setModalConfig({ ...modalConfig, isOpen: false });
 
     try {
       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/reject`, 
-        { reason: formData.text }, 
-        { withCredentials: true }
+        { reason: formData.text }, { withCredentials: true }
       );
       setOriginalComplaints(newComplaints);
     } catch (err) {
       setComplaints(originalComplaints);
-      throw new Error(err.response?.data?.message || 'Failed to reject task.');
+      throw new Error('Failed to reject task.');
     }
   };
 
-  // --- !! THIS IS THE MAIN FIX !! ---
   const handleResolveSubmit = async (id, formData) => {
-    // 1. Optimistic Update
-    const newComplaints = complaints.map(c => 
-      c._id === id ? { ...c, status: 'Resolved', partnerFeedback: formData.text } : c
-    );
+    const newComplaints = complaints.map(c => c._id === id ? { ...c, status: 'Resolved', partnerFeedback: formData.text } : c);
     setComplaints(newComplaints);
+    setModalConfig({ ...modalConfig, isOpen: false });
 
     try {
-      // 2. Prepare FormData (this is what you were missing)
       const payload = new FormData();
       payload.append('feedback', formData.text);
       payload.append('image', formData.file);
-
-      // 3. Send API Call
-      await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/resolve`, 
-        payload, // Send payload, not JSON
-        { 
-          withCredentials: true 
-          // Do NOT set Content-Type header manually
-        }
-      );
+      // No manual Content-Type header
+      await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/resolve`, payload, { withCredentials: true });
       setOriginalComplaints(newComplaints);
     } catch (err) {
-      setComplaints(originalComplaints); // Revert
-      throw new Error(err.response?.data?.message || 'Failed to resolve task.');
+      setComplaints(originalComplaints);
+      throw new Error('Failed to resolve task.');
     }
   };
-  
+
   const handleWorkerUpdate = async (id, workerNames) => {
     setComplaints(prev => prev.map(c => c._id === id ? { ...c, assignedWorkers: workerNames } : c));
     try {
-       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/workers`, 
-        { workers: workerNames }, 
-        { withCredentials: true }
-      );
-    } catch (err) {
-      console.error("Failed to update workers");
-    }
+       await axios.patch(`http://localhost:8080/api/partner/complaints/${id}/workers`, { workers: workerNames }, { withCredentials: true });
+    } catch (err) { console.error("Failed to update workers"); }
   };
-  // --- END OF FIX ---
 
-
+  // --- TABLE RENDER ---
   const renderTable = () => {
-    // ... (rest of the table rendering logic is unchanged) ...
-    if (filteredComplaints.length === 0) {
-      return <p className="text-center text-zinc-400 mt-8">No tasks in the "{filter}" category.</p>;
-    }
+    if (filteredComplaints.length === 0) return <p className="text-center text-zinc-400 mt-8">No tasks in the "{filter}" category.</p>;
+
     return (
       <div className="overflow-x-auto rounded-lg border border-zinc-700 mt-6">
         <table className="min-w-full bg-zinc-900">
@@ -316,12 +255,9 @@ function PartnerDashboard() {
                   <div className="font-bold">{complaint.title}</div>
                   <div className="text-zinc-400 text-xs truncate">{complaint.description}</div>
                 </td>
-                <td className="p-3">
-                   <span className="text-xs font-semibold text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">{complaint.category}</span>
-                </td>
-                <td className="p-3 text-sm text-zinc-400 whitespace-nowrap">
-                  {new Date(complaint.createdAt).toLocaleDateString()}
-                </td>
+                <td className="p-3"><span className="text-xs font-semibold text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">{complaint.category}</span></td>
+                <td className="p-3 text-sm text-zinc-400 whitespace-nowrap">{new Date(complaint.createdAt).toLocaleDateString()}</td>
+                
                 {filter !== 'New' && (
                   <td className="p-3 text-sm whitespace-nowrap">
                      <span className="text-yellow-500 font-medium">
@@ -329,30 +265,19 @@ function PartnerDashboard() {
                      </span>
                   </td>
                 )}
+                
                 {filter === 'Active' && (
                   <td className="p-3 text-sm">
-                    <input 
-                      type="text"
-                      className="bg-zinc-800 text-white px-2 py-1 rounded border border-zinc-600 text-xs w-32 focus:border-purple-500 outline-none"
-                      placeholder="Assign..."
-                      defaultValue={complaint.assignedWorkers || ''}
-                      onBlur={(e) => handleWorkerUpdate(complaint._id, e.target.value)}
-                    />
+                    <input type="text" className="bg-zinc-800 text-white px-2 py-1 rounded border border-zinc-600 text-xs w-32" placeholder="Assign..." defaultValue={complaint.assignedWorkers || ''} onBlur={(e) => handleWorkerUpdate(complaint._id, e.target.value)} />
                   </td>
                 )}
+
                 <td className="p-3 text-sm text-zinc-300 whitespace-nowrap">
-                  {complaint.coordinates && complaint.coordinates.lat ? (
-                    <a href={`http://googleusercontent.com/maps/google.com/0{complaint.coordinates.lat},${complaint.coordinates.lng}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-blue-400 hover:underline">
-                      <MapMarkerIcon /> Map
-                    </a>
-                  ) : complaint.address ? (
-                    <div className="flex items-center gap-1 text-zinc-300" title={complaint.address}>
-                       <MapMarkerIcon /> <span className="truncate w-24">{complaint.address}</span>
-                    </div>
-                  ) : (
-                    <span className="text-zinc-500 text-xs">N/A</span>
-                  )}
+                  <div className="flex items-center gap-1 text-zinc-300" title={complaint.address}>
+                    <MapMarkerIcon /> <span className="truncate w-24">{complaint.address || "N/A"}</span>
+                  </div>
                 </td>
+
                 <td className="p-3 text-sm whitespace-nowrap">
                   {complaint.status === 'Assigned' && (
                     <div className="flex gap-2">
@@ -376,36 +301,45 @@ function PartnerDashboard() {
   return (
     <div className="p-4 md:p-8 pb-24">
       <h1 className="text-3xl font-bold text-white mb-6">Partner Dashboard</h1>
-      <p className="text-zinc-400 mb-6">View and manage your assigned tasks.</p>
+      
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-zinc-900 p-4 rounded border border-purple-900/50 flex items-center justify-between">
+            <div><p className="text-zinc-400 text-xs uppercase">New Tasks</p><h3 className="text-2xl font-bold text-white">{stats.new}</h3></div>
+            <FaClipboardList className="text-purple-500 text-2xl" />
+        </div>
+        <div className="bg-zinc-900 p-4 rounded border border-blue-900/50 flex items-center justify-between">
+            <div><p className="text-zinc-400 text-xs uppercase">Active</p><h3 className="text-2xl font-bold text-white">{stats.active}</h3></div>
+            <FaRunning className="text-blue-500 text-2xl" />
+        </div>
+        <div className="bg-zinc-900 p-4 rounded border border-green-900/50 flex items-center justify-between">
+            <div><p className="text-zinc-400 text-xs uppercase">Resolved</p><h3 className="text-2xl font-bold text-white">{stats.resolved}</h3></div>
+            <FaCheckCircle className="text-green-500 text-2xl" />
+        </div>
+        <div className="bg-zinc-900 p-4 rounded border border-red-900/50 flex items-center justify-between">
+            <div><p className="text-zinc-400 text-xs uppercase">Rejected</p><h3 className="text-2xl font-bold text-white">{stats.rejected}</h3></div>
+            <FaBan className="text-red-500 text-2xl" />
+        </div>
+      </div>
+
+      {/* Filter Buttons */}
       <div className="mb-6 flex gap-2">
         {filters.map(f => (
-          <button
-            key={f.name}
-            onClick={() => { setFilter(f.name); setError(''); }}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-              filter === f.name ? 'bg-purple-600 text-white' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
-            }`}
-          >
-            {f.name} ({f.name === 'New' ? complaints.filter(c => c.status === 'Assigned').length :
-                      f.name === 'Active' ? complaints.filter(c => c.status === 'In Process').length :
-                      complaints.filter(c => c.status === 'Resolved').length})
+          <button key={f.name} onClick={() => { setFilter(f.name); setError(''); }} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${filter === f.name ? 'bg-purple-600 text-white' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}>
+            {f.name} ({f.name === 'New' ? stats.new : f.name === 'Active' ? stats.active : stats.resolved})
           </button>
         ))}
       </div>
+
       {loading && <p className="text-center text-zinc-400 mt-8">Loading tasks...</p>}
       {error && <p className="text-center text-red-500 mt-8">{error}</p>}
       {!loading && !error && renderTable()}
+
       {modalConfig.isOpen && (
-        <ActionModal
-          config={modalConfig}
-          onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-          onSubmit={
-            modalConfig.type === 'accept' ? handleAcceptSubmit :
-            modalConfig.type === 'reject' ? handleRejectSubmit : handleResolveSubmit
-          }
-        />
+        <ActionModal config={modalConfig} onClose={() => setModalConfig({ ...modalConfig, isOpen: false })} onSubmit={modalConfig.type === 'accept' ? handleAcceptSubmit : modalConfig.type === 'reject' ? handleRejectSubmit : handleResolveSubmit} />
       )}
     </div>
   );
 }
+
 export default PartnerDashboard;

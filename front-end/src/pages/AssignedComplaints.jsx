@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { FaFilter, FaUserTie, FaInfoCircle, FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
+import { FaFilter, FaUserTie, FaInfoCircle, FaCheckCircle, FaClock, FaTimesCircle, FaSync } from 'react-icons/fa';
 
 // --- DETAIL MODAL COMPONENT ---
 function ComplaintDetailModal({ complaint, onClose }) {
@@ -69,8 +69,8 @@ function ComplaintDetailModal({ complaint, onClose }) {
               </div>
             )}
 
-            {/* IN PROCESS STATE */}
-            {complaint.status === 'In Process' && (
+            {/* IN PROGRESS STATE (Fixed) */}
+            {complaint.status === 'In Progress' && (
               <div className="bg-blue-900/10 border border-blue-800 p-4 rounded-lg">
                 <h4 className="text-blue-400 font-bold mb-3 flex items-center gap-2">
                   <FaClock /> Work in Progress
@@ -163,22 +163,23 @@ function AssignedComplaints() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
 
   // Fetch Data
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('http://localhost:8080/api/admin/complaints/all', { withCredentials: true });
+      // Filter out 'Pending' and 'Admin Accepted'. Include 'In Progress'
+      const assignedOnly = res.data.filter(c => 
+        ['Assigned', 'In Progress', 'Resolved', 'Rejected'].includes(c.status)
+      );
+      setComplaints(assignedOnly);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const res = await axios.get('http://localhost:8080/api/admin/complaints/all', { withCredentials: true });
-        // Filter out 'Pending' and 'Admin Accepted'
-        const assignedOnly = res.data.filter(c => 
-          ['Assigned', 'In Process', 'Resolved', 'Rejected'].includes(c.status)
-        );
-        setComplaints(assignedOnly);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -206,9 +207,18 @@ function AssignedComplaints() {
 
   return (
     <div className="h-full flex flex-col p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white">Assigned Complaints</h1>
-        <p className="text-zinc-400">Monitor partner progress and review resolutions.</p>
+      <div className="mb-6 flex justify-between items-end">
+        <div>
+            <h1 className="text-3xl font-bold text-white">Assigned Complaints</h1>
+            <p className="text-zinc-400">Monitor partner progress and review resolutions.</p>
+        </div>
+        <button 
+            onClick={fetchData} 
+            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg border border-zinc-700 transition-colors text-sm"
+            title="Refresh Data"
+        >
+            <FaSync className={loading ? "animate-spin" : ""} /> Refresh
+        </button>
       </div>
 
       {/* --- FILTERS --- */}
@@ -244,8 +254,8 @@ function AssignedComplaints() {
             className="bg-zinc-800 text-white text-sm border border-zinc-600 rounded px-3 py-1.5 focus:ring-purple-500 focus:border-purple-500 min-w-[150px]"
           >
             <option value="All">All Statuses</option>
-            <option value="Assigned">Assigned (Pending Action)</option>
-            <option value="In Process">In Process (Accepted)</option>
+            <option value="Assigned">Assigned (Pending)</option>
+            <option value="In Progress">In Progress (Active)</option>
             <option value="Resolved">Resolved</option>
             <option value="Rejected">Rejected</option>
           </select>
@@ -253,7 +263,7 @@ function AssignedComplaints() {
       </div>
 
       {/* --- TABLE --- */}
-      <div className="flex-1 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900">
+      <div className="flex-1 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 flex flex-col">
         <div className="overflow-y-auto h-full">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-zinc-800 text-zinc-400 uppercase text-xs font-medium sticky top-0 z-10">
@@ -261,7 +271,7 @@ function AssignedComplaints() {
                 <th className="px-6 py-3">Title</th>
                 <th className="px-6 py-3">Partner</th>
                 <th className="px-6 py-3">Status</th>
-                {/* Removed Evidence Column */}
+                {/* Evidence Column Removed */}
                 <th className="px-6 py-3">Updated</th>
                 <th className="px-6 py-3 text-right">Actions</th>
               </tr>
@@ -285,14 +295,12 @@ function AssignedComplaints() {
                        <span className={`px-2 py-1 rounded-full text-xs font-bold border 
                         ${complaint.status === 'Resolved' ? 'bg-green-900/30 text-green-400 border-green-800' : 
                           complaint.status === 'Rejected' ? 'bg-red-900/30 text-red-400 border-red-800' : 
-                          complaint.status === 'In Process' ? 'bg-blue-900/30 text-blue-400 border-blue-800' :
+                          complaint.status === 'In Progress' ? 'bg-blue-900/30 text-blue-400 border-blue-800' :
                           'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>
                         {complaint.status}
                       </span>
                     </td>
                     
-                    {/* Removed Evidence Cell */}
-
                     <td className="px-6 py-4 text-zinc-400 text-xs">
                       {new Date(complaint.updatedAt).toLocaleDateString()}
                     </td>
